@@ -4,9 +4,9 @@ import (
 	"github.com/30x/apid-core"
 )
 
-var(
-	log apid.LogService
-
+var (
+	Log    apid.LogService
+	Config apid.ConfigService
 )
 
 func init() {
@@ -14,8 +14,19 @@ func init() {
 }
 
 func initPlugin(services apid.Services) (apid.PluginData, error) {
-	log = services.Log().ForModule("apidQuota")
-	log.Debug("start init")
+	Log = services.Log().ForModule("apidQuota")
+	Log.Debug("start init")
+
+	setConfig(services)
+	InitAPI(services)
 
 	return pluginData, nil
+}
+
+func setConfig(services apid.Services) {
+	// set configuration
+	Config = services.Config()
+	// set plugin config defaults
+	Config.SetDefault(ConfigQuotaBasePath, quotaBasePathDefault)
+
 }
