@@ -5,13 +5,6 @@ import (
 	"strings"
 )
 
-const (
-	QuotaBucketTypeSynchronous    = "synchronous"
-	QuotaBucketTypeAsynchronous   = "asynchronous"
-	QuotaBucketTypeNonDistributed = "nonDistributed"
-	//todo: Add other bucketTypes
-)
-
 type QuotaBucketType interface {
 	resetCount(bucket *QuotaBucket) error
 }

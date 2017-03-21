@@ -162,12 +162,13 @@ func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}
 	bucketType = value.(string)
 	//fmt.Println("bucketType: ", bucketType)
 
-	newQBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, quotaPeriod, startTime, maxCount, bucketType)
-	if err != nil {
-		return errors.New("unable to Unmarshal periodMap to quotaPeriod: " + err.Error())
-
-	}
+	newQBucket := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, quotaPeriod, startTime, maxCount, bucketType)
 	qBucket.quotaBucketData = newQBucket.quotaBucketData
+
+	if err := qBucket.Validate(); err != nil {
+		return errors.New("failed in Validating the quotaBucket: " + err.Error())
+	}
+
 	return nil
 
 }
