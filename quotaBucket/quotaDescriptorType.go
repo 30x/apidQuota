@@ -2,7 +2,6 @@ package quotaBucket
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 )
@@ -17,7 +16,7 @@ type QuotaDescriptorType interface {
 	SetCurrentPeriod(bucket *QuotaBucket) error
 }
 
-func GetQuotaTypeHandler(qType string) (QuotaDescriptorType, error) {
+func GetQuotaDescriptorTypeHandler(qType string) (QuotaDescriptorType, error) {
 	var qDescriptor QuotaDescriptorType
 	quotaType := strings.ToLower(strings.TrimSpace(qType))
 	switch quotaType {
@@ -28,7 +27,7 @@ func GetQuotaTypeHandler(qType string) (QuotaDescriptorType, error) {
 		qDescriptor = &RollingWindowQuotaDescriptorType{}
 		return qDescriptor, nil
 	default:
-		return nil, errors.New("Quota type " + qType + " in the request is not supported")
+		return nil, errors.New(InvalidQuotaDescriptorType + " Quota type " + qType + " in the request is not supported")
 
 	}
 }
@@ -37,11 +36,11 @@ type CalendarQuotaDescriptorType struct{}
 
 func (c CalendarQuotaDescriptorType) SetCurrentPeriod(qbucket *QuotaBucket) error {
 	startTime := qbucket.GetStartTime()
-	currentPeriod,err := qbucket.GetQuotaBucketPeriod()
-if err != nil {
-	return err
-}
-	if startTime.Before(time.Now()) || startTime.Equal(time.Now()) {
+	currentPeriod, err := qbucket.GetQuotaBucketPeriod()
+	if err != nil {
+		return err
+	}
+	if startTime.Before(time.Now().UTC()) || startTime.Equal(time.Now().UTC()) {
 		if currentPeriod != nil {
 			if currentPeriod.IsCurrentPeriod(qbucket) {
 				return nil
@@ -60,7 +59,7 @@ if err != nil {
 	}
 
 	var currentStart, currentEnd time.Time
-	now := time.Now()
+	now := time.Now().UTC()
 	timeUnit := strings.ToLower(strings.TrimSpace(qbucket.TimeUnit))
 	switch timeUnit {
 	case TimeUnitSECOND:
@@ -95,19 +94,22 @@ if err != nil {
 		currentStart = time.Date(now.Year(), now.Month(), 0, 0, 0, 0, 0, time.UTC)
 		currentEnd = currentStart.AddDate(0, qbucket.Interval, 0)
 		break
+	default:
+		return errors.New(InvalidQuotaTimeUnitType + " : ignoring unrecognized timeUnit : " + timeUnit)
+
 	}
 
 	qbucket.SetPeriod(currentStart, currentEnd)
-	fmt.Println("inside calendar set period: ", qbucket.quotaBucketData.Period)
 	return nil
 }
 
 type RollingWindowQuotaDescriptorType struct{}
 
 func (c RollingWindowQuotaDescriptorType) SetCurrentPeriod(qbucket *QuotaBucket) error {
+
 	//yet to implement
 	var currentStart, currentEnd time.Time
-	currentEnd = time.Now()
+	currentEnd = time.Now().UTC()
 	interval, err := GetIntervalDurtation(qbucket)
 	if err != nil {
 		return errors.New("error in SetCurrentPeriod: " + err.Error())
@@ -118,6 +120,7 @@ func (c RollingWindowQuotaDescriptorType) SetCurrentPeriod(qbucket *QuotaBucket)
 	return nil
 }
 func GetIntervalDurtation(qb *QuotaBucket) (time.Duration, error) {
+
 	timeUnit := strings.ToLower(strings.TrimSpace(qb.TimeUnit))
 	switch timeUnit {
 	case TimeUnitSECOND:
@@ -131,9 +134,9 @@ func GetIntervalDurtation(qb *QuotaBucket) (time.Duration, error) {
 	case TimeUnitWEEK:
 		return time.Duration(int64(qb.Interval*24*7) * time.Hour.Nanoseconds()), nil
 	case TimeUnitMONTH:
-		now := time.Now()
+		now := time.Now().UTC()
 		var currentStart, currentEnd time.Time
-		quotaType := strings.ToLower(strings.TrimSpace(qb.QuotaType))
+		quotaType := strings.ToLower(strings.TrimSpace(qb.QuotaDescriptorType))
 		switch quotaType {
 		case QuotaTypeCalendar:
 			currentStart = time.Date(now.Year(), now.Month(), 0, 0, 0, 0, 0, time.UTC)
@@ -144,11 +147,11 @@ func GetIntervalDurtation(qb *QuotaBucket) (time.Duration, error) {
 			currentStart = currentEnd.AddDate(0, -qb.Interval, 0)
 			return currentEnd.Sub(currentStart), nil
 		default:
-			return time.Duration(0), errors.New("Ignoring unrecognized quotaType : " + quotaType)
+			return time.Duration(0), errors.New(InvalidQuotaDescriptorType + " : ignoring unrecognized quotaType : " + quotaType)
 
 		}
 	default:
-		return time.Duration(0), errors.New("Ignoring unrecognized timeUnit : " + timeUnit)
+		return time.Duration(0), errors.New(InvalidQuotaTimeUnitType + " : ignoring unrecognized timeUnit : " + timeUnit)
 
 	}
 

@@ -2,8 +2,16 @@ package apidQuota_test
 
 import (
 	. "github.com/onsi/ginkgo"
+	//"net/http"
 )
 
-var _ = Describe("Api", func() {
+func init() {
+	//testAPIDQuotaURL = ""
+}
 
+var _ = Describe("Api", func() {
+	It("test Synchronous quota", func() {
+
+		//req, err := http.NewRequest("POST", )
+	})
 })

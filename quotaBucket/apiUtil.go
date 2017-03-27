@@ -90,56 +90,6 @@ func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}
 	startTime = int64(startTimeFloat)
 	//fmt.Println("startTime: ", startTime)
 
-	quotaPeriod := QuotaPeriod{}
-	value, ok = quotaBucketMap["period"]
-	//if period is not sent in the request, it is calculated based in the startTime, quotaType and interval.
-	if ok {
-		var inStartInt, startInt, endInt int64
-
-		isPeriodMap := reflect.TypeOf(value)
-		if isPeriodMap.Kind() != reflect.Map {
-			return errors.New(`invalid type : 'period' should be a Map`)
-		}
-		periodMap := value.(map[string]interface{})
-
-		inStartTimeValue, ok := periodMap["inputStartTime"]
-		if !ok {
-			//set period.inputStart time from qBucket.startTime
-			inStartInt = startTime
-		} else {
-			if inStartType := reflect.TypeOf(inStartTimeValue); inStartType.Kind() != reflect.Float64 {
-				return errors.New(`invalid type : 'inputStartTime' in 'period' should be UNIX timestamp`)
-			}
-			inStartFloat := inStartTimeValue.(float64)
-			inStartInt = int64(inStartFloat)
-			if startTime != inStartInt {
-				return errors.New(`invalid value : 'inputStartTime' in 'period' should be same as 'startTime'' in request`)
-			}
-		}
-
-		startTimeValue, ok := periodMap["startTime"]
-		if !ok {
-			return errors.New(`missing field : 'startTime' in 'period' cannot be empty`)
-		}
-		if periodStartType := reflect.TypeOf(startTimeValue); periodStartType.Kind() != reflect.Float64 {
-			return errors.New(`invalid type : 'startTime' in 'period' should be UNIX timestamp`)
-		}
-		periodStartFloat := startTimeValue.(float64)
-		startInt = int64(periodStartFloat)
-
-		periodEndValue, ok := periodMap["endTime"]
-		if !ok {
-			return errors.New(`missing field : 'endTime' in 'period' cannot be empty`)
-		}
-		if periodEndType := reflect.TypeOf(periodEndValue); periodEndType.Kind() != reflect.Float64 {
-			return errors.New(`invalid type : 'endTime' in 'period' should be UNIX timestamp`)
-		}
-		periodEndFloat := periodEndValue.(float64)
-		endInt = int64(periodEndFloat)
-
-		quotaPeriod = NewQuotaPeriod(inStartInt, startInt, endInt)
-	}
-
 	value, ok = quotaBucketMap["maxCount"]
 	if !ok {
 		return errors.New(`missing field: 'maxCount' is required`)
@@ -162,7 +112,12 @@ func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}
 	bucketType = value.(string)
 	//fmt.Println("bucketType: ", bucketType)
 
-	newQBucket := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, quotaPeriod, startTime, maxCount, bucketType)
+	newQBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+	if err != nil {
+		return errors.New("error creating newquotaBucket: " + err.Error())
+
+	}
+
 	qBucket.quotaBucketData = newQBucket.quotaBucketData
 
 	if err := qBucket.Validate(); err != nil {

@@ -3,6 +3,8 @@ package quotaBucket
 import (
 	"errors"
 	"fmt"
+	"github.com/30x/apidQuota/services"
+	"strings"
 	"time"
 )
 
@@ -22,9 +24,10 @@ const (
 	//todo: Add other accepted bucketTypes
 
 	//errors
-	InvalidQuotaTimeUnitType = "invalidQuotaTimeUnitType"
-	InvalidQuotaBucketType   = "invalidQuotaBucketType"
-	InvalidQuotaPeriod       = "invalidQuotaPeriod"
+	InvalidQuotaTimeUnitType   = "invalidQuotaTimeUnitType"
+	InvalidQuotaDescriptorType = "invalidQuotaTimeUnitType"
+	InvalidQuotaBucketType     = "invalidQuotaBucketType"
+	InvalidQuotaPeriod         = "invalidQuotaPeriod"
 )
 
 var (
@@ -85,7 +88,7 @@ type quotaBucketData struct {
 	ID                    string
 	Interval              int
 	TimeUnit              string //TimeUnit {SECOND, MINUTE, HOUR, DAY, WEEK, MONTH}
-	QuotaType             string //Type {CALENDAR, FLEXI, ROLLING_WINDOW}
+	QuotaDescriptorType   string //Type {CALENDAR, FLEXI, ROLLING_WINDOW}
 	PreciseAtSecondsLevel bool
 	Period                QuotaPeriod
 	StartTime             time.Time
@@ -98,18 +101,18 @@ type QuotaBucket struct {
 }
 
 func NewQuotaBucket(edgeOrgID string, id string, interval int,
-	timeUnit string, quotaType string, preciseAtSecondsLevel bool, period QuotaPeriod,
-	startTime int64, maxCount int, bucketType string) *QuotaBucket {
+	timeUnit string, quotaType string, preciseAtSecondsLevel bool,
+	startTime int64, maxCount int, bucketType string) (*QuotaBucket, error) {
 
 	fromUNIXTime := time.Unix(startTime, 0)
+
 	quotaBucketDataStruct := &quotaBucketData{
 		EdgeOrgID:             edgeOrgID,
 		ID:                    id,
 		Interval:              interval,
 		TimeUnit:              timeUnit,
-		QuotaType:             quotaType,
+		QuotaDescriptorType:   quotaType,
 		PreciseAtSecondsLevel: preciseAtSecondsLevel,
-		Period:                period,
 		StartTime:             fromUNIXTime,
 		MaxCount:              maxCount,
 		BucketType:            bucketType,
@@ -119,28 +122,33 @@ func NewQuotaBucket(edgeOrgID string, id string, interval int,
 		quotaBucketData: *quotaBucketDataStruct,
 	}
 
-	return quotaBucket
+	err := quotaBucket.setCurrentPeriod()
+	if err != nil {
+		return nil, err
+	}
+	return quotaBucket, nil
 
 }
 
 func (q *QuotaBucket) Validate() error {
+
+	//check valid quotaTimeUnit
+	if ok := IsValidTimeUnit(strings.ToLower(q.GetTimeUnit())); !ok {
+		return errors.New(InvalidQuotaTimeUnitType)
+	}
+
+	//check valid quotaBucketType
+	if ok := IsValidQuotaBucketType(strings.ToLower(q.GetBucketType())); !ok {
+		return errors.New(InvalidQuotaBucketType)
+	}
+
 	//check if the period is valid
-	period,err := q.GetQuotaBucketPeriod()
+	period, err := q.GetQuotaBucketPeriod()
 	if err != nil {
 		return err
 	}
 	if ok, err := period.Validate(); !ok {
 		return errors.New("invalid Period: " + err.Error())
-	}
-
-	//check valid quotaTimeUnit
-	if ok := IsValidTimeUnit(q.GetTimeUnit()); !ok {
-		return errors.New(InvalidQuotaTimeUnitType)
-	}
-
-	//check valid quotaBucketType
-	if ok := IsValidQuotaBucketType(q.GetBucketType()); !ok {
-		return errors.New(InvalidQuotaBucketType)
 	}
 
 	return nil
@@ -167,16 +175,16 @@ func (q *QuotaBucket) GetStartTime() time.Time {
 }
 
 func (q *QuotaBucket) GetQuotaType() string {
-	return q.quotaBucketData.QuotaType
+	return q.quotaBucketData.QuotaDescriptorType
 }
 
 func (q *QuotaBucket) GetPreciseAtSecondsLevel() bool {
 	return q.quotaBucketData.PreciseAtSecondsLevel
 }
 
-//Calls setCurrentPeriod if QuotaType is rollingWindow or period.endTime is before now.
+//Calls setCurrentPeriod if QuotaDescriptorType is rollingWindow or period.endTime is before now.
 func (q *QuotaBucket) GetPeriod() (*QuotaPeriod, error) {
-	if q.quotaBucketData.QuotaType == QuotaTypeRollingWindow {
+	if q.quotaBucketData.QuotaDescriptorType == QuotaTypeRollingWindow {
 		qRWType := RollingWindowQuotaDescriptorType{}
 		err := qRWType.SetCurrentPeriod(q)
 		if err != nil {
@@ -184,12 +192,12 @@ func (q *QuotaBucket) GetPeriod() (*QuotaPeriod, error) {
 		}
 	}
 
-	period,err := q.GetQuotaBucketPeriod()
+	period, err := q.GetQuotaBucketPeriod()
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 	//setCurrentPeriod if endTime > time.now()
-	if period.endTime.Before(time.Now()) || period.endTime.Equal(time.Now()){
+	if period.endTime.Before(time.Now().UTC()) || period.endTime.Equal(time.Now().UTC()) {
 		if err := q.setCurrentPeriod(); err != nil {
 			return nil, err
 		}
@@ -199,18 +207,16 @@ func (q *QuotaBucket) GetPeriod() (*QuotaPeriod, error) {
 }
 
 //setCurrentPeriod only for rolling window else just return the value of QuotaPeriod
-func (q *QuotaBucket) GetQuotaBucketPeriod() (*QuotaPeriod,error) {
-	if q.quotaBucketData.QuotaType == QuotaTypeRollingWindow {
+func (q *QuotaBucket) GetQuotaBucketPeriod() (*QuotaPeriod, error) {
+	if q.quotaBucketData.QuotaDescriptorType == QuotaTypeRollingWindow {
 		qRWType := RollingWindowQuotaDescriptorType{}
 		err := qRWType.SetCurrentPeriod(q)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return &q.quotaBucketData.Period,nil
+	return &q.quotaBucketData.Period, nil
 }
-
-
 
 func (q *QuotaBucket) GetMaxCount() int {
 	return q.quotaBucketData.MaxCount
@@ -230,7 +236,7 @@ func (q *QuotaBucket) SetPeriod(startTime time.Time, endTime time.Time) {
 
 func (q *QuotaBucket) setCurrentPeriod() error {
 
-	qDescriptorType, err := GetQuotaTypeHandler(q.GetQuotaType())
+	qDescriptorType, err := GetQuotaDescriptorTypeHandler(q.GetQuotaType())
 	if err != nil {
 		return err
 	}
@@ -241,15 +247,15 @@ func (q *QuotaBucket) setCurrentPeriod() error {
 func (period *QuotaPeriod) IsCurrentPeriod(qBucket *QuotaBucket) bool {
 	if qBucket != nil && qBucket.GetBucketType() != "" {
 		if qBucket.GetQuotaType() == QuotaTypeRollingWindow {
-			return (period.inputStartTime.Equal(time.Now()) || period.inputStartTime.Before(time.Now()) )
+			return (period.inputStartTime.Equal(time.Now().UTC()) || period.inputStartTime.Before(time.Now().UTC()))
 		}
 
-		return (period.inputStartTime.Equal(time.Now()) || period.inputStartTime.Before(time.Now())) &&
+		return (period.inputStartTime.Equal(time.Now().UTC()) || period.inputStartTime.Before(time.Now().UTC())) &&
 			period.startTime.String() != "" &&
 			period.endTime.String() != "" &&
 			period.startTime.Before(period.endTime) &&
-			(period.startTime.Equal(time.Now()) || period.startTime.Before(time.Now()))&&
-			(period.endTime.Equal(time.Now()) || period.endTime.After(time.Now()))
+			(period.startTime.Equal(time.Now().UTC()) || period.startTime.Before(time.Now().UTC())) &&
+			(period.endTime.Equal(time.Now().UTC()) || period.endTime.After(time.Now().UTC()))
 	}
 	return false
 }
@@ -265,9 +271,12 @@ func (q *QuotaBucket) GetQuotaCount() (int, error) {
 	}
 	fmt.Println("period set: ", period)
 
-	//todo API call to counter service using Period start end and keyspace.
+	resp, err := services.IncrementAndGetCount(q.GetEdgeOrgID(), q.GetID(), 0)
+	if err != nil {
+		return 0, err
+	}
 
-	return 10, nil
+	return resp, nil
 }
 
 func (q *QuotaBucket) IncrementQuota() (int, error) {

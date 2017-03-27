@@ -2,20 +2,31 @@ package apidQuota
 
 import (
 	"github.com/30x/apid-core"
-)
-
-var (
-	Log    apid.LogService
-	Config apid.ConfigService
+	"github.com/30x/apidQuota/constants"
+	"github.com/30x/apidQuota/globalVariables"
 )
 
 func init() {
 	apid.RegisterPlugin(initPlugin)
+	initCounterService()
+}
+
+// set config for counter service.
+func initCounterService() {
+	//counterBasePath := globalVariables.Config.Get(constants.ConfigCounterServiceBasePath)
+	//fmt.Println("counterBasePath: ", counterBasePath , "//")
+	/*if counterBasePath != nil {
+		if reflect.TypeOf(counterBasePath).Kind() != reflect.String{
+			globalVariables.Log.Fatal("value of: " + constants.ConfigCounterServiceBasePath + " in the config should be string")
+		}
+		globalVariables.CounterServiceURL = counterBasePath.(string)
+	}*/
+	globalVariables.CounterServiceURL = "http://54.86.114.219:8989/increment"
 }
 
 func initPlugin(services apid.Services) (apid.PluginData, error) {
-	Log = services.Log().ForModule("apidQuota")
-	Log.Debug("start init")
+	globalVariables.Log = services.Log().ForModule("apidQuota")
+	globalVariables.Log.Debug("start init")
 
 	setConfig(services)
 	InitAPI(services)
@@ -25,8 +36,8 @@ func initPlugin(services apid.Services) (apid.PluginData, error) {
 
 func setConfig(services apid.Services) {
 	// set configuration
-	Config = services.Config()
+	globalVariables.Config = services.Config()
 	// set plugin config defaults
-	Config.SetDefault(ConfigQuotaBasePath, quotaBasePathDefault)
+	globalVariables.Config.SetDefault(constants.ConfigQuotaBasePath, constants.QuotaBasePathDefault)
 
 }

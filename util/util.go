@@ -1,4 +1,4 @@
-package apidQuota
+package util
 
 import (
 	"encoding/json"
