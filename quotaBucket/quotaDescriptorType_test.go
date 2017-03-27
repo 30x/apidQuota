@@ -19,7 +19,7 @@ var _ = Describe("Check Descriptor Type ", func() {
 		}
 	})
 
-	FIt("test RollingWindow Type descriptor", func() {
+	It("test RollingWindow Type descriptor", func() {
 		descriptorType, err := GetQuotaDescriptorTypeHandler("rollingwindow")
 		Expect(err).NotTo(HaveOccurred())
 		if reflect.TypeOf(descriptorType)!= reflect.TypeOf(&RollingWindowQuotaDescriptorType{}){
@@ -27,7 +27,7 @@ var _ = Describe("Check Descriptor Type ", func() {
 		}
 	})
 
-	FIt("test invalid Type descriptor", func() {
+	It("test invalid Type descriptor", func() {
 		_, err := GetQuotaDescriptorTypeHandler("invalidDescriptorType")
 		Expect(err).To(HaveOccurred())
 		if !strings.Contains(err.Error(), InvalidQuotaDescriptorType) {
