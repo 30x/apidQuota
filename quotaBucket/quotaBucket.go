@@ -92,8 +92,9 @@ type quotaBucketData struct {
 	PreciseAtSecondsLevel bool
 	Period                QuotaPeriod
 	StartTime             time.Time
-	MaxCount              int
+	MaxCount              int64
 	BucketType            string // SyncDistributed, AsyncDistributed, NonDistributed
+	Weight                int64
 }
 
 type QuotaBucket struct {
@@ -102,7 +103,7 @@ type QuotaBucket struct {
 
 func NewQuotaBucket(edgeOrgID string, id string, interval int,
 	timeUnit string, quotaType string, preciseAtSecondsLevel bool,
-	startTime int64, maxCount int, bucketType string) (*QuotaBucket, error) {
+	startTime int64, maxCount int64, bucketType string, weight int64) (*QuotaBucket, error) {
 
 	fromUNIXTime := time.Unix(startTime, 0)
 
@@ -116,6 +117,7 @@ func NewQuotaBucket(edgeOrgID string, id string, interval int,
 		StartTime:             fromUNIXTime,
 		MaxCount:              maxCount,
 		BucketType:            bucketType,
+		Weight:                weight,
 	}
 
 	quotaBucket := &QuotaBucket{
@@ -196,8 +198,9 @@ func (q *QuotaBucket) GetPeriod() (*QuotaPeriod, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	//setCurrentPeriod if endTime > time.now()
-	if period.endTime.Before(time.Now().UTC()) || period.endTime.Equal(time.Now().UTC()) {
+	if period == nil || period.endTime.Before(time.Now().UTC()) || period.endTime.Equal(time.Now().UTC()) {
 		if err := q.setCurrentPeriod(); err != nil {
 			return nil, err
 		}
@@ -218,12 +221,16 @@ func (q *QuotaBucket) GetQuotaBucketPeriod() (*QuotaPeriod, error) {
 	return &q.quotaBucketData.Period, nil
 }
 
-func (q *QuotaBucket) GetMaxCount() int {
+func (q *QuotaBucket) GetMaxCount() int64 {
 	return q.quotaBucketData.MaxCount
 }
 
 func (q *QuotaBucket) GetBucketType() string {
 	return q.quotaBucketData.BucketType
+}
+
+func (q *QuotaBucket) GetBucketWeight() int64 {
+	return q.quotaBucketData.Weight
 }
 
 func (q *QuotaBucket) SetPeriod(startTime time.Time, endTime time.Time) {
@@ -260,28 +267,69 @@ func (period *QuotaPeriod) IsCurrentPeriod(qBucket *QuotaBucket) bool {
 	return false
 }
 
-func (q *QuotaBucket) GetQuotaCount() (int, error) {
-	err := q.setCurrentPeriod()
-	if err != nil {
-		return 0, errors.New("error setCurrentPeriod(): " + err.Error())
-	}
+func (q *QuotaBucket) IncrementQuotaLimit() (*QuotaBucketResults, error) {
+	maxCount := q.GetMaxCount()
+	exceededCount := false
+	allowedCount := int64(0)
+	weight := q.GetBucketWeight()
 	period, err := q.GetPeriod()
 	if err != nil {
-		return 0, errors.New("error getting period: " + err.Error())
+		return nil, errors.New("error getting period: " + err.Error())
 	}
-	fmt.Println("period set: ", period)
+	fmt.Println("period set, start time: ", period.GetPeriodStartTime().String(), " end time: ", period.GetPeriodEndTime().String())
 
-	resp, err := services.IncrementAndGetCount(q.GetEdgeOrgID(), q.GetID(), 0)
+	//first retrieve the count from counter service.
+	currentCount, err := services.IncrementAndGetCount(q.GetEdgeOrgID(), q.GetID(), 0, period.GetPeriodStartTime().Unix(), period.GetPeriodEndTime().Unix())
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	return resp, nil
-}
+	fmt.Println("startTime get period : ", period.GetPeriodStartTime().String())
+	fmt.Println("endTime get period : ", period.GetPeriodEndTime().String())
 
-func (q *QuotaBucket) IncrementQuota() (int, error) {
-	//todo
-	return 0, nil
+	if period.IsCurrentPeriod(q) {
+
+		if currentCount < maxCount {
+			allowed := maxCount - currentCount
+
+			if allowed > weight {
+
+				if weight != 0 {
+
+					currentCount, err = services.IncrementAndGetCount(q.GetEdgeOrgID(), q.GetID(), weight, period.GetPeriodStartTime().Unix(), period.GetPeriodEndTime().Unix())
+					if err != nil {
+						return nil, err
+					}
+				}
+
+				allowedCount = currentCount + weight
+			} else {
+
+				if weight != 0 {
+
+					exceededCount = true
+				}
+				allowedCount = currentCount + weight
+			}
+		} else {
+
+			exceededCount = true
+			allowedCount = currentCount
+		}
+	}
+
+	results := &QuotaBucketResults{
+		EdgeOrgID      : q.GetEdgeOrgID(),
+		ID             : q.GetID(),
+		exceededTokens : exceededCount,
+		allowedTokens  : allowedCount,
+		MaxCount       : maxCount,
+		startedAt      : period.GetPeriodStartTime().Unix(),
+		expiresAt      : period.GetPeriodEndTime().Unix(),
+
+	}
+
+	return results, nil
 }
 
 func IsValidTimeUnit(timeUnit string) bool {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/30x/apidQuota/constants"
 	"github.com/30x/apidQuota/globalVariables"
 	"io/ioutil"
@@ -23,7 +24,7 @@ var client *http.Client = &http.Client{
 	Timeout: time.Duration(60 * time.Second),
 }
 
-func IncrementAndGetCount(orgID string, quotaKey string, count int) (int, error) {
+func IncrementAndGetCount(orgID string, quotaKey string, count int64, startTimeInt int64, endTimeInt int64) (int64, error) {
 	headers := http.Header{}
 	headers.Set("Accept", "application/json")
 	headers.Set("Content-Type", "application/json")
@@ -44,6 +45,11 @@ func IncrementAndGetCount(orgID string, quotaKey string, count int) (int, error)
 	reqBody[edgeOrgID] = orgID
 	reqBody[key] = quotaKey
 	reqBody[delta] = count
+	reqBody["startTime"] = startTimeInt
+	reqBody["endTime"] = endTimeInt
+
+	fmt.Println("startTime: ", startTimeInt)
+	fmt.Println("endTime: ", endTimeInt)
 
 	reqBodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
@@ -89,13 +95,15 @@ func IncrementAndGetCount(orgID string, quotaKey string, count int) (int, error)
 	if !ok {
 		return 0, errors.New(`invalid response from counter service. field 'count' not sent in the response`)
 	}
+	fmt.Println("respcount: ", respCount)
 
 	globalVariables.Log.Debug("responseCount: ", respCount)
-	respCountInt, ok := respCount.(int)
+
+	respCountInt, ok := respCount.(float64)
 	if !ok {
-		return 0, errors.New(`invalid response from counter service. field 'count' sent in the response is not int`)
+		return 0, errors.New(`invalid response from counter service. field 'count' sent in the response is not float`)
 	}
 
-	return respCountInt, nil
+	return int64(respCountInt), nil
 
 }

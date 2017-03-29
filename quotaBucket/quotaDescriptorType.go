@@ -144,7 +144,7 @@ func GetIntervalDurtation(qb *QuotaBucket) (time.Duration, error) {
 			return currentEnd.Sub(currentStart), nil
 		case QuotaTypeRollingWindow:
 			currentEnd = now
-			currentStart = currentEnd.AddDate(0, -qb.Interval, 0)
+			currentStart = currentEnd.AddDate(0, (-1)*qb.Interval, 0)
 			return currentEnd.Sub(currentStart), nil
 		default:
 			return time.Duration(0), errors.New(InvalidQuotaDescriptorType + " : ignoring unrecognized quotaType : " + quotaType)

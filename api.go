@@ -2,6 +2,7 @@ package apidQuota
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/30x/apid-core"
 	"github.com/30x/apidQuota/constants"
 	"github.com/30x/apidQuota/globalVariables"
@@ -9,26 +10,16 @@ import (
 	"github.com/30x/apidQuota/util"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 )
 
 func InitAPI(services apid.Services) {
-	globalVariables.Log.Debug("initialized API's exposed by apidQuota plugin")
+	globalVariables.Log.Debug("initializing apidQuota plugin APIs")
 	quotaBasePath := globalVariables.Config.GetString(constants.ConfigQuotaBasePath)
-	services.API().HandleFunc(quotaBasePath, getAllQuotaValues).Methods("GET") //yet to implement.
-	services.API().HandleFunc(quotaBasePath+"/{quotaItentifier}", incrementAndCheckQuotaLimit).Methods("POST")
+	services.API().HandleFunc(quotaBasePath, checkQuotaLimitExceeded).Methods("POST")
 
 }
 
-func getAllQuotaValues(res http.ResponseWriter, req *http.Request) {
-	stringbytes := []byte("yet to implement")
-	res.Header().Set("Content-Type", "application/json")
-	res.WriteHeader(http.StatusOK)
-	res.Write(stringbytes)
-
-}
-
-func incrementAndCheckQuotaLimit(res http.ResponseWriter, req *http.Request) {
+func checkQuotaLimitExceeded(res http.ResponseWriter, req *http.Request) {
 
 	bodyBytes, err := ioutil.ReadAll(req.Body)
 	defer req.Body.Close()
@@ -42,24 +33,26 @@ func incrementAndCheckQuotaLimit(res http.ResponseWriter, req *http.Request) {
 		util.WriteErrorResponse(http.StatusBadRequest, constants.UnMarshalJSONError, "unable to convert request body to an object: "+err.Error(), res, req)
 		return
 	}
-	globalVariables.Log.Println("quotaBucketMap from request: ", quotaBucketMap)
 
-	// parse the request body into the Event struct
+	// parse the request body into the QuotaBucket struct
 	qBucket := new(quotaBucket.QuotaBucket)
 	if err = qBucket.FromAPIRequest(quotaBucketMap); err != nil {
 		util.WriteErrorResponse(http.StatusBadRequest, constants.ErrorConvertReqBodyToEntity, err.Error(), res, req)
 		return
 	}
 
-	quotaCount, err := qBucket.GetQuotaCount()
+	results, err := qBucket.IncrementQuotaLimit()
 	if err != nil {
 		util.WriteErrorResponse(http.StatusBadRequest, constants.UnMarshalJSONError, "error retrieving count for the give identifier "+err.Error(), res, req)
 		return
 	}
 
-	stringbytes := []byte(strconv.Itoa(quotaCount))
+	respMap := results.ToAPIResponse()
+	fmt.Println("results from inc quota: ", results)
+	respbytes, err := json.Marshal(respMap)
+
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusOK)
-	res.Write(stringbytes)
+	res.Write(respbytes)
 
 }

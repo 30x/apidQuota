@@ -4,17 +4,16 @@ import (
 	. "github.com/30x/apidQuota/quotaBucket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"time"
-	"strings"
 	"reflect"
+	"strings"
+	"time"
 )
-
 
 var _ = Describe("Check Descriptor Type ", func() {
 	It("test Calendar Type descriptor", func() {
 		descriptorType, err := GetQuotaDescriptorTypeHandler("calendar")
 		Expect(err).NotTo(HaveOccurred())
-		if reflect.TypeOf(descriptorType)!= reflect.TypeOf(&CalendarQuotaDescriptorType{}){
+		if reflect.TypeOf(descriptorType) != reflect.TypeOf(&CalendarQuotaDescriptorType{}) {
 			Fail("Excepted CalendarQuotaDescriptorType, but got: " + reflect.TypeOf(descriptorType).String())
 		}
 	})
@@ -22,7 +21,7 @@ var _ = Describe("Check Descriptor Type ", func() {
 	It("test RollingWindow Type descriptor", func() {
 		descriptorType, err := GetQuotaDescriptorTypeHandler("rollingwindow")
 		Expect(err).NotTo(HaveOccurred())
-		if reflect.TypeOf(descriptorType)!= reflect.TypeOf(&RollingWindowQuotaDescriptorType{}){
+		if reflect.TypeOf(descriptorType) != reflect.TypeOf(&RollingWindowQuotaDescriptorType{}) {
 			Fail("Excepted RollingWindowQuotaDescriptorType, but got: " + reflect.TypeOf(descriptorType).String())
 		}
 	})
@@ -46,11 +45,13 @@ var _ = Describe("QuotaDescriptorType", func() {
 		quotaType := "calendar"
 		bucketType := "synchronous"
 		interval := 1
-		maxCount := 10
+		maxCount := int64(10)
+		weight := int64(1)
+
 		preciseAtSecondsLevel := true
 		startTime := time.Now().UTC().UTC().AddDate(0, -1, 0).Unix()
 
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -68,11 +69,10 @@ var _ = Describe("QuotaDescriptorType", func() {
 		intervalDuration := period.GetPeriodEndTime().Sub(period.GetPeriodStartTime())
 		Expect(intervalDuration).Should(Equal(time.Second))
 
-
 		// test set period for timeUnit=minute
 		timeUnit = "minute"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -93,7 +93,7 @@ var _ = Describe("QuotaDescriptorType", func() {
 		// test set period for timeUnit=hour
 		timeUnit = "hour"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -111,11 +111,10 @@ var _ = Describe("QuotaDescriptorType", func() {
 		intervalDuration = period.GetPeriodEndTime().Sub(period.GetPeriodStartTime())
 		Expect(intervalDuration).Should(Equal(time.Hour))
 
-
 		// test set period for timeUnit=day
 		timeUnit = "day"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -136,7 +135,7 @@ var _ = Describe("QuotaDescriptorType", func() {
 		// test set period for timeUnit=week
 		timeUnit = "week"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -154,11 +153,10 @@ var _ = Describe("QuotaDescriptorType", func() {
 		intervalDuration = period.GetPeriodEndTime().Sub(period.GetPeriodStartTime())
 		Expect(intervalDuration).Should(Equal(7 * 24 * time.Hour))
 
-
 		// test set period for timeUnit=month
 		timeUnit = "month"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -174,7 +172,7 @@ var _ = Describe("QuotaDescriptorType", func() {
 		Expect(period.GetPeriodStartTime().String()).ShouldNot(BeEmpty())
 		Expect(period.GetPeriodEndTime().String()).ShouldNot(BeEmpty())
 		intervalDuration = period.GetPeriodEndTime().Sub(period.GetPeriodStartTime())
-		addMonthToStartDate := period.GetPeriodStartTime().AddDate(0,interval*1,0)
+		addMonthToStartDate := period.GetPeriodStartTime().AddDate(0, interval*1, 0)
 		actualDuration := addMonthToStartDate.Sub(period.GetPeriodStartTime())
 		Expect(intervalDuration).Should(Equal(actualDuration))
 
@@ -189,11 +187,12 @@ var _ = Describe("QuotaDescriptorType", func() {
 		quotaType := "calendar"
 		bucketType := "synchronous"
 		interval := 1
-		maxCount := 10
+		maxCount := int64(10)
+		weight := int64(1)
 		preciseAtSecondsLevel := true
 		startTime := time.Now().UTC().UTC().AddDate(0, -1, 0).Unix()
 
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -211,13 +210,12 @@ var _ = Describe("QuotaDescriptorType", func() {
 		intervalDuration := period.GetPeriodEndTime().Sub(period.GetPeriodStartTime())
 		Expect(intervalDuration).Should(Equal(time.Second))
 
-
 		// test set period for timeUnit=month
 		timeUnit = "invalidTimeUnit"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 		Expect(err).To(HaveOccurred())
-		if ok := strings.Contains(err.Error(),InvalidQuotaTimeUnitType); !ok {
+		if ok := strings.Contains(err.Error(), InvalidQuotaTimeUnitType); !ok {
 			Fail("expected error to contain " + InvalidQuotaTimeUnitType + " but got different error message: " + err.Error())
 		}
 
@@ -232,11 +230,12 @@ var _ = Describe("QuotaDescriptorType", func() {
 		quotaType := "rollingWindow"
 		bucketType := "synchronous"
 		interval := 1
-		maxCount := 10
+		maxCount := int64(10)
+		weight := int64(1)
 		preciseAtSecondsLevel := true
 		startTime := time.Now().UTC().UTC().AddDate(0, -1, 0).Unix()
 
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -254,11 +253,10 @@ var _ = Describe("QuotaDescriptorType", func() {
 		intervalDuration := period.GetPeriodEndTime().Sub(period.GetPeriodStartTime())
 		Expect(intervalDuration).Should(Equal(time.Second))
 
-
 		// test set period for timeUnit=minute
 		timeUnit = "minute"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -279,7 +277,7 @@ var _ = Describe("QuotaDescriptorType", func() {
 		// test set period for timeUnit=hour
 		timeUnit = "hour"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -297,11 +295,10 @@ var _ = Describe("QuotaDescriptorType", func() {
 		intervalDuration = period.GetPeriodEndTime().Sub(period.GetPeriodStartTime())
 		Expect(intervalDuration).Should(Equal(time.Hour))
 
-
 		// test set period for timeUnit=day
 		timeUnit = "day"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -322,7 +319,7 @@ var _ = Describe("QuotaDescriptorType", func() {
 		// test set period for timeUnit=week
 		timeUnit = "week"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -340,11 +337,10 @@ var _ = Describe("QuotaDescriptorType", func() {
 		intervalDuration = period.GetPeriodEndTime().Sub(period.GetPeriodStartTime())
 		Expect(intervalDuration).Should(Equal(7 * 24 * time.Hour))
 
-
 		// test set period for timeUnit=month
 		timeUnit = "month"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -360,8 +356,8 @@ var _ = Describe("QuotaDescriptorType", func() {
 		Expect(period.GetPeriodStartTime().String()).ShouldNot(BeEmpty())
 		Expect(period.GetPeriodEndTime().String()).ShouldNot(BeEmpty())
 		intervalDuration = period.GetPeriodEndTime().Sub(period.GetPeriodStartTime())
-		addMonthToStartDate := period.GetPeriodStartTime().AddDate(0,interval*1,0)
-		actualDuration := addMonthToStartDate.Sub(period.GetPeriodStartTime())
+		subMonthToEndtDate := period.GetPeriodEndTime().AddDate(0, -interval*1, 0)
+		actualDuration := period.GetPeriodEndTime().Sub(subMonthToEndtDate)
 		Expect(intervalDuration).Should(Equal(actualDuration))
 
 	})
@@ -375,11 +371,12 @@ var _ = Describe("QuotaDescriptorType", func() {
 		quotaType := "rollingwindow"
 		bucketType := "synchronous"
 		interval := 1
-		maxCount := 10
+		maxCount := int64(10)
+		weight := int64(1)
 		preciseAtSecondsLevel := true
 		startTime := time.Now().UTC().UTC().AddDate(0, -1, 0).Unix()
 
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -397,13 +394,12 @@ var _ = Describe("QuotaDescriptorType", func() {
 		intervalDuration := period.GetPeriodEndTime().Sub(period.GetPeriodStartTime())
 		Expect(intervalDuration).Should(Equal(time.Second))
 
-
 		// test set period for timeUnit=month
 		timeUnit = "invalidTimeUnit"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 		Expect(err).To(HaveOccurred())
-		if ok := strings.Contains(err.Error(),InvalidQuotaTimeUnitType); !ok {
+		if ok := strings.Contains(err.Error(), InvalidQuotaTimeUnitType); !ok {
 			Fail("expected error to contain " + InvalidQuotaTimeUnitType + " but got different error message: " + err.Error())
 		}
 
