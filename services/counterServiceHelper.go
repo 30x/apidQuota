@@ -17,6 +17,8 @@ const (
 	edgeOrgID = "orgId"
 	key       = "key"
 	delta     = "delta"
+	startTime = "startTime"
+	endTime = "endTime"
 )
 
 var client *http.Client = &http.Client{
@@ -45,8 +47,8 @@ func IncrementAndGetCount(orgID string, quotaKey string, count int64, startTimeI
 	reqBody[edgeOrgID] = orgID
 	reqBody[key] = quotaKey
 	reqBody[delta] = count
-	reqBody["startTime"] = startTimeInt
-	reqBody["endTime"] = endTimeInt
+	reqBody[startTime] = startTimeInt * int64(1000)
+	reqBody[endTime] = endTimeInt * int64(1000)
 
 	fmt.Println("startTime: ", startTimeInt)
 	fmt.Println("endTime: ", endTimeInt)

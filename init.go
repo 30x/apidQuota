@@ -29,13 +29,11 @@ func setConfig(services apid.Services) {
 	globalVariables.Config.SetDefault(constants.ConfigQuotaBasePath, constants.QuotaBasePathDefault)
 
 	counterServiceBasePath := globalVariables.Config.Get(constants.ConfigCounterServiceBasePath)
-	fmt.Println("counterBasePath: ", counterServiceBasePath, "//")
 	if counterServiceBasePath != nil {
 		if reflect.TypeOf(counterServiceBasePath).Kind() != reflect.String {
 			globalVariables.Log.Fatal("value of: " + constants.ConfigCounterServiceBasePath + " in the config should be string")
 		}
 		globalVariables.CounterServiceURL = counterServiceBasePath.(string)
 	}
-	globalVariables.CounterServiceURL = "http://54.86.114.219:8989/increment" //todo: comment it once the above code works.
 
 }

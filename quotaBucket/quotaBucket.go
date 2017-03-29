@@ -284,6 +284,7 @@ func (q *QuotaBucket) IncrementQuotaLimit() (*QuotaBucketResults, error) {
 		return nil, err
 	}
 
+	fmt.Println("currentcount1: ", currentCount)
 	fmt.Println("startTime get period : ", period.GetPeriodStartTime().String())
 	fmt.Println("endTime get period : ", period.GetPeriodEndTime().String())
 
@@ -295,14 +296,14 @@ func (q *QuotaBucket) IncrementQuotaLimit() (*QuotaBucketResults, error) {
 			if allowed > weight {
 
 				if weight != 0 {
-
 					currentCount, err = services.IncrementAndGetCount(q.GetEdgeOrgID(), q.GetID(), weight, period.GetPeriodStartTime().Unix(), period.GetPeriodEndTime().Unix())
+					fmt.Println("currentcount2: ", currentCount)
 					if err != nil {
 						return nil, err
 					}
 				}
 
-				allowedCount = currentCount + weight
+				allowedCount = currentCount
 			} else {
 
 				if weight != 0 {
