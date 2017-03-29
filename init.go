@@ -1,7 +1,6 @@
 package apidQuota
 
 import (
-	"fmt"
 	"github.com/30x/apid-core"
 	"github.com/30x/apidQuota/constants"
 	"github.com/30x/apidQuota/globalVariables"
