@@ -18,7 +18,7 @@ const (
 	key       = "key"
 	delta     = "delta"
 	startTime = "startTime"
-	endTime = "endTime"
+	endTime   = "endTime"
 )
 
 var client *http.Client = &http.Client{

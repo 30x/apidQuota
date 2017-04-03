@@ -3,14 +3,21 @@ package quotaBucket
 import (
 	"errors"
 	"reflect"
+	"time"
+)
+
+const (
+	reqEdgeOrgID = "edgeOrgID"
+	reqID        = "id"
+	reqMaxCount  = "maxCount"
 )
 
 type QuotaBucketResults struct {
 	EdgeOrgID      string
 	ID             string
-	exceededTokens bool
-	allowedTokens  int64
 	MaxCount       int64
+	exceededTokens bool
+	currentTokens  int64
 	startedAt      int64
 	expiresAt      int64
 }
@@ -21,7 +28,7 @@ func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}
 	var startTime, maxCount, weight int64
 	var preciseAtSecondsLevel bool
 
-	value, ok := quotaBucketMap["edgeOrgID"]
+	value, ok := quotaBucketMap[reqEdgeOrgID]
 	if !ok {
 		return errors.New(`missing field: 'edgeOrgID' is required`)
 	}
@@ -30,7 +37,7 @@ func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}
 	}
 	edgeOrgID = value.(string)
 
-	value, ok = quotaBucketMap["id"]
+	value, ok = quotaBucketMap[reqID]
 	if !ok {
 		return errors.New(`missing field: 'id' is required`)
 	}
@@ -80,8 +87,8 @@ func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}
 	preciseAtSecondsLevel = value.(bool)
 
 	value, ok = quotaBucketMap["startTime"]
-	if !ok {
-		return errors.New(`missing field: 'startTime' is required`)
+	if !ok { //todo: in the current cps code startTime is optional for QuotaBucket. should we make start time optional to NewQuotaBucket?
+		startTime = time.Now().UTC().Unix()
 	}
 	//from input when its read its float, need to then convert to int.
 	if startTimeType := reflect.TypeOf(value); startTimeType.Kind() != reflect.Float64 {
@@ -90,7 +97,7 @@ func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}
 	startTimeFloat := value.(float64)
 	startTime = int64(startTimeFloat)
 
-	value, ok = quotaBucketMap["maxCount"]
+	value, ok = quotaBucketMap[reqMaxCount]
 	if !ok {
 		return errors.New(`missing field: 'maxCount' is required`)
 	}
@@ -121,10 +128,9 @@ func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}
 	weightFloat := value.(float64)
 	weight = int64(weightFloat)
 
-
 	newQBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
 	if err != nil {
-		return errors.New("error creating newquotaBucket: " + err.Error())
+		return errors.New("error creating quotaBucket: " + err.Error())
 
 	}
 
@@ -138,16 +144,15 @@ func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}
 
 }
 
-func  (qBucketResults *QuotaBucketResults)  ToAPIResponse() (map[string]interface{}) {
+func (qBucketResults *QuotaBucketResults) ToAPIResponse() map[string]interface{} {
 	resultsMap := make(map[string]interface{})
-	resultsMap["edgeOrgID"] = qBucketResults.ID
-	resultsMap["id"] = qBucketResults.ID
+	resultsMap[reqEdgeOrgID] = qBucketResults.ID
+	resultsMap[reqID] = qBucketResults.ID
+	resultsMap[reqMaxCount] = qBucketResults.MaxCount
 	resultsMap["exceededTokens"] = qBucketResults.exceededTokens
-	resultsMap["allowedTokens"] = qBucketResults.allowedTokens
-	resultsMap["MaxCount"] = qBucketResults.MaxCount
+	resultsMap["currentTokens"] = qBucketResults.currentTokens
 	resultsMap["startedAt"] = qBucketResults.startedAt
 	resultsMap["expiresAt"] = qBucketResults.expiresAt
-
 
 	return resultsMap
 }

@@ -2,7 +2,6 @@ package quotaBucket
 
 import (
 	"errors"
-	"fmt"
 	"github.com/30x/apidQuota/services"
 	"strings"
 	"time"
@@ -45,10 +44,14 @@ func init() {
 
 }
 
-type QuotaPeriod struct {
+type quotaPeriodData struct {
 	inputStartTime time.Time
 	startTime      time.Time
 	endTime        time.Time
+}
+
+type QuotaPeriod struct {
+	quotaPeriodData
 }
 
 func NewQuotaPeriod(inputStartTime int64, startTime int64, endTime int64) QuotaPeriod {
@@ -56,23 +59,30 @@ func NewQuotaPeriod(inputStartTime int64, startTime int64, endTime int64) QuotaP
 	pStartTime := time.Unix(startTime, 0)
 	pEndTime := time.Unix(endTime, 0)
 
-	period := &QuotaPeriod{inputStartTime: pInStartTime,
-		startTime: pStartTime,
-		endTime:   pEndTime,
+	periodData := quotaPeriodData{
+		inputStartTime: pInStartTime,
+		startTime:      pStartTime,
+		endTime:        pEndTime,
 	}
-	return *period
+
+	period := QuotaPeriod{
+		quotaPeriodData: periodData,
+	}
+
+	return period
+
 }
 
 func (qp *QuotaPeriod) GetPeriodInputStartTime() time.Time {
-	return qp.inputStartTime
+	return qp.quotaPeriodData.inputStartTime
 }
 
 func (qp *QuotaPeriod) GetPeriodStartTime() time.Time {
-	return qp.startTime
+	return qp.quotaPeriodData.startTime
 }
 
 func (qp *QuotaPeriod) GetPeriodEndTime() time.Time {
-	return qp.endTime
+	return qp.quotaPeriodData.endTime
 }
 
 func (qp *QuotaPeriod) Validate() (bool, error) {
@@ -107,7 +117,7 @@ func NewQuotaBucket(edgeOrgID string, id string, interval int,
 
 	fromUNIXTime := time.Unix(startTime, 0)
 
-	quotaBucketDataStruct := &quotaBucketData{
+	quotaBucketDataStruct := quotaBucketData{
 		EdgeOrgID:             edgeOrgID,
 		ID:                    id,
 		Interval:              interval,
@@ -121,7 +131,7 @@ func NewQuotaBucket(edgeOrgID string, id string, interval int,
 	}
 
 	quotaBucket := &QuotaBucket{
-		quotaBucketData: *quotaBucketDataStruct,
+		quotaBucketData: quotaBucketDataStruct,
 	}
 
 	err := quotaBucket.setCurrentPeriod()
@@ -176,15 +186,29 @@ func (q *QuotaBucket) GetStartTime() time.Time {
 	return q.quotaBucketData.StartTime
 }
 
-func (q *QuotaBucket) GetQuotaType() string {
+func (q *QuotaBucket) GetQuotaDescriptorType() string {
 	return q.quotaBucketData.QuotaDescriptorType
 }
 
-func (q *QuotaBucket) GetPreciseAtSecondsLevel() bool {
+func (q *QuotaBucket) GetIsPreciseAtSecondsLevel() bool {
 	return q.quotaBucketData.PreciseAtSecondsLevel
 }
 
-//Calls setCurrentPeriod if QuotaDescriptorType is rollingWindow or period.endTime is before now.
+func (q *QuotaBucket) GetMaxCount() int64 {
+	return q.quotaBucketData.MaxCount
+}
+
+func (q *QuotaBucket) GetBucketType() string {
+	return q.quotaBucketData.BucketType
+}
+
+func (q *QuotaBucket) GetWeight() int64 {
+	return q.quotaBucketData.Weight
+}
+
+
+//Calls setCurrentPeriod if DescriptorType is 'rollingWindow' or period.endTime is before now().
+// It is required to setPeriod while incrementing the count.
 func (q *QuotaBucket) GetPeriod() (*QuotaPeriod, error) {
 	if q.quotaBucketData.QuotaDescriptorType == QuotaTypeRollingWindow {
 		qRWType := RollingWindowQuotaDescriptorType{}
@@ -209,7 +233,7 @@ func (q *QuotaBucket) GetPeriod() (*QuotaPeriod, error) {
 	return &q.quotaBucketData.Period, nil
 }
 
-//setCurrentPeriod only for rolling window else just return the value of QuotaPeriod
+//setCurrentPeriod only for rolling window else just return the value of QuotaPeriod.
 func (q *QuotaBucket) GetQuotaBucketPeriod() (*QuotaPeriod, error) {
 	if q.quotaBucketData.QuotaDescriptorType == QuotaTypeRollingWindow {
 		qRWType := RollingWindowQuotaDescriptorType{}
@@ -221,29 +245,23 @@ func (q *QuotaBucket) GetQuotaBucketPeriod() (*QuotaPeriod, error) {
 	return &q.quotaBucketData.Period, nil
 }
 
-func (q *QuotaBucket) GetMaxCount() int64 {
-	return q.quotaBucketData.MaxCount
-}
-
-func (q *QuotaBucket) GetBucketType() string {
-	return q.quotaBucketData.BucketType
-}
-
-func (q *QuotaBucket) GetBucketWeight() int64 {
-	return q.quotaBucketData.Weight
-}
-
 func (q *QuotaBucket) SetPeriod(startTime time.Time, endTime time.Time) {
-	period := QuotaPeriod{inputStartTime: q.GetStartTime(),
-		startTime: startTime,
-		endTime:   endTime,
+	periodData := quotaPeriodData{
+		inputStartTime: q.GetStartTime(),
+		startTime:      startTime,
+		endTime:        endTime,
 	}
+
+	period := QuotaPeriod{
+		quotaPeriodData: periodData,
+	}
+
 	q.quotaBucketData.Period = period
 }
 
 func (q *QuotaBucket) setCurrentPeriod() error {
 
-	qDescriptorType, err := GetQuotaDescriptorTypeHandler(q.GetQuotaType())
+	qDescriptorType, err := GetQuotaDescriptorTypeHandler(q.GetQuotaDescriptorType())
 	if err != nil {
 		return err
 	}
@@ -253,7 +271,7 @@ func (q *QuotaBucket) setCurrentPeriod() error {
 
 func (period *QuotaPeriod) IsCurrentPeriod(qBucket *QuotaBucket) bool {
 	if qBucket != nil && qBucket.GetBucketType() != "" {
-		if qBucket.GetQuotaType() == QuotaTypeRollingWindow {
+		if qBucket.GetQuotaDescriptorType() == QuotaTypeRollingWindow {
 			return (period.inputStartTime.Equal(time.Now().UTC()) || period.inputStartTime.Before(time.Now().UTC()))
 		}
 
@@ -271,12 +289,11 @@ func (q *QuotaBucket) IncrementQuotaLimit() (*QuotaBucketResults, error) {
 	maxCount := q.GetMaxCount()
 	exceededCount := false
 	allowedCount := int64(0)
-	weight := q.GetBucketWeight()
+	weight := q.GetWeight()
 	period, err := q.GetPeriod()
 	if err != nil {
 		return nil, errors.New("error getting period: " + err.Error())
 	}
-	fmt.Println("period set, start time: ", period.GetPeriodStartTime().String(), " end time: ", period.GetPeriodEndTime().String())
 
 	//first retrieve the count from counter service.
 	currentCount, err := services.IncrementAndGetCount(q.GetEdgeOrgID(), q.GetID(), 0, period.GetPeriodStartTime().Unix(), period.GetPeriodEndTime().Unix())
@@ -284,28 +301,18 @@ func (q *QuotaBucket) IncrementQuotaLimit() (*QuotaBucketResults, error) {
 		return nil, err
 	}
 
-	fmt.Println("currentcount1: ", currentCount)
-	fmt.Println("startTime get period : ", period.GetPeriodStartTime().String())
-	fmt.Println("endTime get period : ", period.GetPeriodEndTime().String())
-
 	if period.IsCurrentPeriod(q) {
-
 		if currentCount < maxCount {
 			allowed := maxCount - currentCount
-
 			if allowed > weight {
-
 				if weight != 0 {
 					currentCount, err = services.IncrementAndGetCount(q.GetEdgeOrgID(), q.GetID(), weight, period.GetPeriodStartTime().Unix(), period.GetPeriodEndTime().Unix())
-					fmt.Println("currentcount2: ", currentCount)
 					if err != nil {
 						return nil, err
 					}
 				}
-
 				allowedCount = currentCount
 			} else {
-
 				if weight != 0 {
 
 					exceededCount = true
@@ -320,14 +327,13 @@ func (q *QuotaBucket) IncrementQuotaLimit() (*QuotaBucketResults, error) {
 	}
 
 	results := &QuotaBucketResults{
-		EdgeOrgID      : q.GetEdgeOrgID(),
-		ID             : q.GetID(),
-		exceededTokens : exceededCount,
-		allowedTokens  : allowedCount,
-		MaxCount       : maxCount,
-		startedAt      : period.GetPeriodStartTime().Unix(),
-		expiresAt      : period.GetPeriodEndTime().Unix(),
-
+		EdgeOrgID:      q.GetEdgeOrgID(),
+		ID:             q.GetID(),
+		exceededTokens: exceededCount,
+		currentTokens:  allowedCount,
+		MaxCount:       maxCount,
+		startedAt:      period.GetPeriodStartTime().Unix(),
+		expiresAt:      period.GetPeriodEndTime().Unix(),
 	}
 
 	return results, nil

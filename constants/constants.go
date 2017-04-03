@@ -5,6 +5,7 @@ const (
 	UnMarshalJSONError          = "unmarshal_json_error"
 	ErrorConvertReqBodyToEntity = "error_convert_reqBody_to_entity"
 	ConfigQuotaBasePath         = "quota_base_path"
+	ErrorCheckingQuotaLimit     = "error_checking_quota_limit"
 	QuotaBasePathDefault        = "/quota"
 
 	ConfigCounterServiceBasePath = "counterService_base_path"

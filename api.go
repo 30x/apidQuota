@@ -2,7 +2,6 @@ package apidQuota
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/30x/apid-core"
 	"github.com/30x/apidQuota/constants"
 	"github.com/30x/apidQuota/globalVariables"
@@ -43,12 +42,11 @@ func checkQuotaLimitExceeded(res http.ResponseWriter, req *http.Request) {
 
 	results, err := qBucket.IncrementQuotaLimit()
 	if err != nil {
-		util.WriteErrorResponse(http.StatusBadRequest, constants.UnMarshalJSONError, "error retrieving count for the give identifier "+err.Error(), res, req)
+		util.WriteErrorResponse(http.StatusBadRequest, constants.ErrorCheckingQuotaLimit, "error retrieving count for the give identifier "+err.Error(), res, req)
 		return
 	}
 
 	respMap := results.ToAPIResponse()
-	fmt.Println("results from inc quota: ", results)
 	respbytes, err := json.Marshal(respMap)
 
 	res.Header().Set("Content-Type", "application/json")
