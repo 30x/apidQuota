@@ -26,7 +26,14 @@ var client *http.Client = &http.Client{
 	Timeout: time.Duration(60 * time.Second),
 }
 
+func GetCount(orgID string, quotaKey string, startTimeInt int64, endTimeInt int64) (int64, error) {
+
+	return IncrementAndGetCount(orgID, quotaKey,0,startTimeInt,endTimeInt)
+}
+
+
 func IncrementAndGetCount(orgID string, quotaKey string, count int64, startTimeInt int64, endTimeInt int64) (int64, error) {
+	fmt.Println("calling counter service")
 	headers := http.Header{}
 	headers.Set("Accept", "application/json")
 	headers.Set("Content-Type", "application/json")

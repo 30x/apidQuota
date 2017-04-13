@@ -27,7 +27,7 @@ var _ = Describe("Check Descriptor Type ", func() {
 	})
 
 	It("test invalid Type descriptor", func() {
-		_, err := GetQuotaDescriptorTypeHandler("invalidDescriptorType")
+		_, err := GetQuotaDescriptorTypeHandler("invalxidDescriptorType")
 		Expect(err).To(HaveOccurred())
 		if !strings.Contains(err.Error(), InvalidQuotaDescriptorType) {
 			Fail("Excepted error to contain: " + InvalidQuotaDescriptorType + " but got: " + err.Error())
