@@ -1,6 +1,7 @@
 package quotaBucket_test
 
 import (
+	"github.com/30x/apidQuota/constants"
 	. "github.com/30x/apidQuota/quotaBucket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -82,44 +83,31 @@ var _ = Describe("Test AcceptedQuotaTimeUnitTypes", func() {
 	})
 })
 
-var _ = Describe("Test AcceptedQuotaBucketTypes", func() {
-	It("testBucketTypes", func() {
-		if !IsValidQuotaBucketType("synchronous") {
-			Fail("Expected true: synchronous is a valid quotaBucket")
-		}
-		if !IsValidQuotaBucketType("asynchronous") {
-			Fail("Expected true: asynchronous is a valid quotaBucket")
-		}
-		if !IsValidQuotaBucketType("nonDistributed") {
-			Fail("Expected true: nonDistributed is a valid quotaBucket")
-		}
-
-		//invalid type
-		if IsValidQuotaBucketType("invalidType") {
-			Fail("Expected false: invalidType is a invalid quotaBucket")
-		}
-	})
-})
-
 //Tests for QuotaBucket
 var _ = Describe("QuotaBucket", func() {
 	It("Create with NewQuotaBucket", func() {
 		edgeOrgID := "sampleOrg"
 		id := "sampleID"
+		interval := 1
 		timeUnit := "hour"
 		quotaType := "calendar"
-		bucketType := "synchronous"
-		interval := 1
+		preciseAtSecondsLevel := true
 		maxCount := int64(10)
 		weight := int64(1)
-		preciseAtSecondsLevel := true
+		distributed := true
+		synchronous := true
+		syncTimeInSec := int64(-1)
+		syncMessageCount := int64(-1)
+
 		//start time before now()
 		startTime := time.Now().UTC().AddDate(0, -1, 0).Unix()
 
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 		now := time.Now().UTC()
-		currentHour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(),0,0,0, time.UTC)
+		currentHour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC)
 		err = quotaBucket.Validate()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -129,8 +117,7 @@ var _ = Describe("QuotaBucket", func() {
 		Expect(edgeOrgID).To(Equal(quotaBucket.GetEdgeOrgID()))
 		Expect(id).To(Equal(quotaBucket.GetID()))
 		Expect(timeUnit).To(Equal(quotaBucket.GetTimeUnit()))
-		Expect(quotaType).To(Equal(quotaBucket.GetQuotaDescriptorType()))
-		Expect(bucketType).To(Equal(quotaBucket.GetBucketType()))
+		Expect(quotaType).To(Equal(quotaBucket.GetType()))
 		Expect(interval).To(Equal(quotaBucket.GetInterval()))
 		Expect(maxCount).To(Equal(quotaBucket.GetMaxCount()))
 		Expect(preciseAtSecondsLevel).To(Equal(quotaBucket.GetIsPreciseAtSecondsLevel()))
@@ -142,14 +129,15 @@ var _ = Describe("QuotaBucket", func() {
 		Expect(getPeriod.GetPeriodStartTime().String()).Should(Equal(currentHour.String()))
 		Expect(getPeriod.GetPeriodEndTime().String()).Should(Equal(currentHour.Add(time.Hour).String()))
 
-
 		//start time is after now() -> should still set period.
 		startTime = time.Now().UTC().AddDate(0, 1, 0).Unix()
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		now = time.Now().UTC()
-		currentHour = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(),0,0,0, time.UTC)
+		currentHour = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC)
 
 		err = quotaBucket.Validate()
 		Expect(err).NotTo(HaveOccurred())
@@ -162,7 +150,6 @@ var _ = Describe("QuotaBucket", func() {
 		Expect(getPeriod.GetPeriodStartTime().String()).Should(Equal(currentHour.String()))
 		Expect(getPeriod.GetPeriodEndTime().String()).Should(Equal(currentHour.Add(time.Hour).String()))
 
-
 	})
 
 	//end before start
@@ -171,14 +158,19 @@ var _ = Describe("QuotaBucket", func() {
 		id := "sampleID"
 		timeUnit := "hour"
 		quotaType := "calendar"
-		bucketType := "synchronous"
 		interval := 1
 		maxCount := int64(10)
 		weight := int64(1)
 		preciseAtSecondsLevel := true
 		startTime := time.Now().UTC().AddDate(0, -1, 0).Unix()
+		distributed := true
+		synchronous := true
+		syncTimeInSec := int64(-1)
+		syncMessageCount := int64(-1)
 
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		quotaBucket.SetPeriod(time.Now().UTC().AddDate(0, 1, 0), time.Now().UTC().AddDate(0, 0, -1))
@@ -186,8 +178,8 @@ var _ = Describe("QuotaBucket", func() {
 		if err == nil {
 			Fail("error expected but got <nil>")
 		}
-		if !strings.Contains(err.Error(), InvalidQuotaPeriod) {
-			Fail("expected: " + InvalidQuotaPeriod + " in the error but got: " + err.Error())
+		if !strings.Contains(err.Error(), constants.InvalidQuotaPeriod) {
+			Fail("expected: " + constants.InvalidQuotaPeriod + " in the error but got: " + err.Error())
 		}
 
 	})
@@ -197,46 +189,28 @@ var _ = Describe("QuotaBucket", func() {
 		id := "sampleID"
 		timeUnit := "invalidTimeUnit"
 		quotaType := "calendar"
-		bucketType := "synchronous"
 		interval := 1
 		maxCount := int64(10)
 		weight := int64(1)
 		preciseAtSecondsLevel := true
 		startTime := time.Now().UTC().AddDate(0, -1, 0).Unix()
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		distributed := true
+		synchronous := true
+		syncTimeInSec := int64(-1)
+		syncMessageCount := int64(-1)
+
+		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).To(HaveOccurred())
 
-		if !strings.Contains(err.Error(), InvalidQuotaTimeUnitType) {
-			Fail("expected: " + InvalidQuotaTimeUnitType + "but got: " + err.Error())
+		if !strings.Contains(err.Error(), constants.InvalidQuotaTimeUnitType) {
+			Fail("expected: " + constants.InvalidQuotaTimeUnitType + "but got: " + err.Error())
 		}
 		if quotaBucket != nil {
 			Fail("quotaBucket returned should be nil.")
 		}
 
-	})
-
-	It("Test invalid quotaBucketType", func() {
-		edgeOrgID := "sampleOrg"
-		id := "sampleID"
-		timeUnit := "hour"
-		quotaType := "calendar"
-		bucketType := "invalidQuotaBucket"
-		interval := 1
-		maxCount := int64(10)
-		weight := int64(1)
-		preciseAtSecondsLevel := true
-		startTime := time.Now().UTC().AddDate(0, -1, 0).Unix()
-
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = quotaBucket.Validate()
-		if err == nil {
-			Fail("error expected but got <nil>")
-		}
-		if !strings.Contains(err.Error(), InvalidQuotaBucketType) {
-			Fail("expected: " + InvalidQuotaBucketType + " in the error message but got: " + err.Error())
-		}
 	})
 
 })
@@ -248,15 +222,21 @@ var _ = Describe("IsCurrentPeriod", func() {
 		id := "sampleID"
 		timeUnit := "hour"
 		quotaType := "rollingwindow"
-		bucketType := "synchronous"
 		interval := 1
 		maxCount := int64(10)
 		weight := int64(1)
 		preciseAtSecondsLevel := true
+		distributed := true
+		synchronous := true
+		syncTimeInSec := int64(-1)
+		syncMessageCount := int64(-1)
+
 		//InputStart time is before now
 		startTime := time.Now().UTC().AddDate(0, -1, 0).Unix()
 
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 		err = quotaBucket.Validate()
 		Expect(err).NotTo(HaveOccurred())
@@ -271,7 +251,9 @@ var _ = Describe("IsCurrentPeriod", func() {
 
 		//InputStart time is now
 		startTime = time.Now().UTC().Unix()
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 		err = quotaBucket.Validate()
 		Expect(err).NotTo(HaveOccurred())
@@ -292,15 +274,20 @@ var _ = Describe("IsCurrentPeriod", func() {
 		id := "sampleID"
 		timeUnit := "hour"
 		quotaType := "rollingwindow"
-		bucketType := "synchronous"
 		interval := 1
 		maxCount := int64(10)
 		weight := int64(1)
 		preciseAtSecondsLevel := true
 		//InputStart time is after now.
 		startTime := time.Now().UTC().AddDate(0, 1, 0).Unix()
+		distributed := true
+		synchronous := true
+		syncTimeInSec := int64(-1)
+		syncMessageCount := int64(-1)
 
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -315,7 +302,9 @@ var _ = Describe("IsCurrentPeriod", func() {
 
 		//endTime before startTime in period
 		startTime = time.Now().UTC().AddDate(0, -1, 0).Unix()
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		quotaBucket.SetPeriod(time.Now().UTC(), time.Now().UTC().AddDate(0, -1, 0))
@@ -330,16 +319,21 @@ var _ = Describe("IsCurrentPeriod", func() {
 		id := "sampleID"
 		timeUnit := "hour"
 		quotaType := "calendar"
-		bucketType := "synchronous"
 		interval := 1
 		maxCount := int64(10)
 		weight := int64(1)
 		preciseAtSecondsLevel := true
+		distributed := true
+		synchronous := true
+		syncTimeInSec := int64(-1)
+		syncMessageCount := int64(-1)
 
 		//InputStart time is before now
 		startTime := time.Now().UTC().UTC().AddDate(-1, -1, 0).Unix()
 
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -355,7 +349,9 @@ var _ = Describe("IsCurrentPeriod", func() {
 
 		//InputStart time is now
 		startTime = time.Now().UTC().Unix()
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -372,7 +368,9 @@ var _ = Describe("IsCurrentPeriod", func() {
 
 		//start Time in period is before now
 		startTime = time.Now().UTC().Unix()
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -391,7 +389,9 @@ var _ = Describe("IsCurrentPeriod", func() {
 
 		//start Time in period is now
 		startTime = time.Now().UTC().Unix()
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -426,7 +426,9 @@ var _ = Describe("IsCurrentPeriod", func() {
 
 		//end Time in period is after now
 		startTime = time.Now().UTC().Unix()
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -446,7 +448,9 @@ var _ = Describe("IsCurrentPeriod", func() {
 
 		//start time in period is before end time
 		startTime = time.Now().UTC().Unix()
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -470,18 +474,23 @@ var _ = Describe("IsCurrentPeriod", func() {
 		id := "sampleID"
 		timeUnit := "hour"
 		quotaType := "calendar"
-		bucketType := "synchronous"
 		interval := 1
 		maxCount := int64(10)
 		weight := int64(1)
 		preciseAtSecondsLevel := true
+		distributed := true
+		synchronous := true
+		syncTimeInSec := int64(-1)
+		syncMessageCount := int64(-1)
 
 		//InputStart time is after now.
 		period := NewQuotaPeriod(time.Now().UTC().AddDate(0, 1, 0).Unix(),
 			time.Now().UTC().AddDate(0, 1, 0).Unix(), time.Now().AddDate(1, 0, 1).Unix())
 		startTime := time.Now().UTC().AddDate(0, 1, 0).Unix()
 
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -493,7 +502,9 @@ var _ = Describe("IsCurrentPeriod", func() {
 
 		//endTime is before start time
 		startTime = time.Now().UTC().AddDate(0, -1, 0).Unix()
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -528,14 +539,20 @@ var _ = Describe("Test GetPeriod and setCurrentPeriod", func() {
 		id := "sampleID"
 		timeUnit := "hour"
 		quotaType := "rollingwindow"
-		bucketType := "synchronous"
 		interval := 1
 		maxCount := int64(10)
 		weight := int64(1)
 		preciseAtSecondsLevel := true
+		distributed := true
+		synchronous := true
+		syncTimeInSec := int64(-1)
+		syncMessageCount := int64(-1)
+
 		//InputStart time is before now
 		startTime := time.Now().UTC().AddDate(0, -1, 0).Unix()
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		quotaBucket.SetPeriod(time.Now().UTC().AddDate(0, 0, -1), time.Now().UTC().AddDate(0, 1, 0))
@@ -557,7 +574,9 @@ var _ = Describe("Test GetPeriod and setCurrentPeriod", func() {
 		quotaType = "calendar"
 		pstartTime := time.Now().UTC().AddDate(0, -1, 0)
 		pendTime := time.Now().UTC().AddDate(0, 1, 0)
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		quotaBucket.SetPeriod(pstartTime, pendTime)
@@ -573,7 +592,9 @@ var _ = Describe("Test GetPeriod and setCurrentPeriod", func() {
 		quotaType = "calendar"
 		pstartTime = time.Now().UTC().AddDate(0, -1, 0)
 		pendTime = time.Now().UTC().AddDate(0, -1, 0)
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		quotaBucket.SetPeriod(pstartTime, pendTime)

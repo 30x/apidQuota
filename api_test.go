@@ -3,12 +3,13 @@ package apidQuota_test
 import (
 	. "github.com/onsi/ginkgo"
 	//"net/http"
-	"encoding/json"
-	"net/http"
-	"io/ioutil"
 	"bytes"
-	"time"
+	"encoding/json"
+	"fmt"
 	"github.com/google/uuid"
+	"io/ioutil"
+	"net/http"
+	"time"
 )
 
 func init() {
@@ -29,11 +30,13 @@ var _ = Describe("Api Tests", func() {
 		requestData["id"] = "testID"
 		requestData["interval"] = 1
 		requestData["timeUnit"] = "HOUR"
-		requestData["quotaType"] = "CALENDAR"
+		requestData["type"] = "CALENDAR"
 		requestData["preciseAtSecondsLevel"] = false
-		requestData["startTime"] = time.Now().UTC().AddDate(0,0,1).Unix()
+		requestData["startTime"] = time.Now().UTC().AddDate(0, 0, 1).Unix()
 		requestData["maxCount"] = 5
-		requestData["bucketType"] = "Synchronous"
+		requestData["weight"] = 2
+		requestData["distributed"] = true
+		requestData["synchronous"] = true
 		requestData["weight"] = 2
 
 		reqBytes, err := json.Marshal(requestData)
@@ -54,6 +57,14 @@ var _ = Describe("Api Tests", func() {
 
 		// Check the status code is what we expect.
 		if status := res.StatusCode; status != http.StatusOK {
+			respBodyBytes, err := ioutil.ReadAll(res.Body)
+			respBody := make(map[string]interface{})
+			err = json.Unmarshal(respBodyBytes, &respBody)
+			if err != nil {
+				fmt.Println("error: ", err)
+			}
+
+			fmt.Println(respBody)
 			Fail("wrong status code: " + res.Status)
 		}
 
@@ -92,12 +103,19 @@ var _ = Describe("Api Tests", func() {
 
 		// Check the status code is what we expect.
 		if status := res.StatusCode; status != http.StatusOK {
+			respBodyBytes, err := ioutil.ReadAll(res.Body)
+			respBody := make(map[string]interface{})
+			err = json.Unmarshal(respBodyBytes, &respBody)
+			if err != nil {
+				fmt.Println("error: ", err)
+			}
+
 			Fail("wrong status code: " + res.Status)
 		}
 
 		//TestCase3: quotaType = "RollingWidow"
 		requestData["quotaType"] = "RollingWindow"
-		requestData["startTime"] = time.Now().UTC().AddDate(0,0,1).Unix()
+		requestData["startTime"] = time.Now().UTC().AddDate(0, 0, 1).Unix()
 		req, err = http.NewRequest("POST", testQuotaAPIURL, ioutil.NopCloser(bytes.NewReader(reqBytes)))
 		if err != nil {
 			Fail("error getting newRequest: " + err.Error())
@@ -113,12 +131,11 @@ var _ = Describe("Api Tests", func() {
 			Fail("wrong status code: " + res.Status)
 		}
 
-
 	})
 
 	It("test Synchronous quota - invalidation test cases", func() {
 		requestData := make(map[string]interface{})
-		uuid,err := uuid.NewUUID()
+		uuid, err := uuid.NewUUID()
 		if err != nil {
 			Fail("error getting uuid")
 		}
@@ -129,7 +146,7 @@ var _ = Describe("Api Tests", func() {
 		requestData["timeUnit"] = "HOUR"
 		requestData["quotaType"] = "CALENDAR"
 		requestData["preciseAtSecondsLevel"] = false
-		requestData["startTime"] = time.Now().UTC().AddDate(0,0,1).Unix()
+		requestData["startTime"] = time.Now().UTC().AddDate(0, 0, 1).Unix()
 		requestData["maxCount"] = 5
 		requestData["bucketType"] = "Synchronous"
 		requestData["weight"] = 2
@@ -154,6 +171,13 @@ var _ = Describe("Api Tests", func() {
 
 		// Check the status code is what we expect.
 		if status := res.StatusCode; status != http.StatusBadRequest {
+			respBodyBytes, err := ioutil.ReadAll(res.Body)
+			respBody := make(map[string]interface{})
+			err = json.Unmarshal(respBodyBytes, &respBody)
+			if err != nil {
+				fmt.Println("error: ", err)
+			}
+
 			Fail("wrong status code: " + res.Status)
 		}
 

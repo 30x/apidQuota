@@ -23,10 +23,12 @@ type QuotaBucketResults struct {
 }
 
 func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}) error {
-	var edgeOrgID, id, timeUnit, quotaType, bucketType string
+	var edgeOrgID, id, timeUnit, quotaType string
 	var interval int
 	var startTime, maxCount, weight int64
-	var preciseAtSecondsLevel bool
+	var preciseAtSecondsLevel, distributed bool
+	newQBucket := &QuotaBucket{}
+	var err error
 
 	value, ok := quotaBucketMap[reqEdgeOrgID]
 	if !ok {
@@ -67,13 +69,13 @@ func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}
 	}
 	timeUnit = value.(string)
 
-	//Type {CALENDAR, FLEXI, ROLLING_WINDOW}
-	value, ok = quotaBucketMap["quotaType"]
+	//QuotaType {CALENDAR, FLEXI, ROLLING_WINDOW}
+	value, ok = quotaBucketMap["type"]
 	if !ok {
-		return errors.New(`missing field: 'quotaType' is required`)
+		return errors.New(`missing field: 'type' is required`)
 	}
 	if quotaTypeType := reflect.TypeOf(value); quotaTypeType.Kind() != reflect.String {
-		return errors.New(`invalid type : 'quotaType' should be a string`)
+		return errors.New(`invalid type : 'type' should be a string`)
 	}
 	quotaType = value.(string)
 
@@ -86,16 +88,17 @@ func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}
 	}
 	preciseAtSecondsLevel = value.(bool)
 
-	value, ok = quotaBucketMap["startTime"]
-	if !ok { //todo: in the current cps code startTime is optional for QuotaBucket. should we make start time optional to NewQuotaBucket?
+	value, ok = quotaBucketMap["startTimestamp"]
+	if !ok { //todo: in the current cps code startTime is optional for QuotaBucket. should we make startTime optional to NewQuotaBucket?
 		startTime = time.Now().UTC().Unix()
+	} else {
+		//	//from input when its read its float, need to then convert to int.
+		if startTimeType := reflect.TypeOf(value); startTimeType.Kind() != reflect.Float64 {
+			return errors.New(`invalid type : 'startTime' should be UNIX timestamp`)
+		}
+		startTimeFloat := value.(float64)
+		startTime = int64(startTimeFloat)
 	}
-	//from input when its read its float, need to then convert to int.
-	if startTimeType := reflect.TypeOf(value); startTimeType.Kind() != reflect.Float64 {
-		return errors.New(`invalid type : 'startTime' should be UNIX timestamp`)
-	}
-	startTimeFloat := value.(float64)
-	startTime = int64(startTimeFloat)
 
 	value, ok = quotaBucketMap[reqMaxCount]
 	if !ok {
@@ -108,15 +111,6 @@ func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}
 	maxCountFloat := value.(float64)
 	maxCount = int64(maxCountFloat)
 
-	value, ok = quotaBucketMap["bucketType"]
-	if !ok {
-		return errors.New(`missing field: 'bucketType' is required`)
-	}
-	if bucketTypeType := reflect.TypeOf(value); bucketTypeType.Kind() != reflect.String {
-		return errors.New(`invalid type : 'bucketType' should be a string`)
-	}
-	bucketType = value.(string)
-
 	value, ok = quotaBucketMap["weight"]
 	if !ok {
 		return errors.New(`missing field: 'weight' is required`)
@@ -128,7 +122,97 @@ func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}
 	weightFloat := value.(float64)
 	weight = int64(weightFloat)
 
-	newQBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+	value, ok = quotaBucketMap["distributed"]
+	if !ok {
+		return errors.New(`missing field: 'distributed' is required`)
+	}
+	if preciseAtSecondsLevelType := reflect.TypeOf(value); preciseAtSecondsLevelType.Kind() != reflect.Bool {
+		return errors.New(`invalid type : 'distributed' should be boolean`)
+	}
+	distributed = value.(bool)
+
+	//if distributed check for sync or async Quota
+	if distributed {
+		value, ok = quotaBucketMap["synchronous"]
+		if !ok {
+			return errors.New(`missing field: 'synchronous' is required`)
+		}
+		if synchronousType := reflect.TypeOf(value); synchronousType.Kind() != reflect.Bool {
+			return errors.New(`invalid type : 'synchronous' should be boolean`)
+		}
+		synchronous := value.(bool)
+
+		// for async retrieve syncTimeSec or syncMessageCount
+		if !synchronous {
+			syncTimeValue, syncTimeOK := quotaBucketMap["syncTimeInSec"]
+			syncMsgCountValue, syncMsgCountOK := quotaBucketMap["syncMessageCount"]
+
+			if syncTimeOK && syncMsgCountOK {
+				return errors.New(`either syncTimeInSec or syncMessageCount should be present but not both.`)
+			}
+
+			if !syncTimeOK && !syncMsgCountOK {
+				return errors.New(`either syncTimeInSec or syncMessageCount should be present. both cant be empty.`)
+			}
+
+			if syncTimeOK {
+				if syncTimeType := reflect.TypeOf(syncTimeValue); syncTimeType.Kind() != reflect.Float64 {
+					return errors.New(`invalid type : 'syncTimeInSec' should be a number`)
+				}
+				syncTimeFloat := value.(float64)
+				syncTimeInt := int64(syncTimeFloat)
+				newQBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel,
+					startTime, maxCount, weight, distributed, synchronous, syncTimeInt, -1)
+				if err != nil {
+					return errors.New("error creating quotaBucket: " + err.Error())
+				}
+				qBucket.quotaBucketData = newQBucket.quotaBucketData
+
+				if err := qBucket.Validate(); err != nil {
+					return errors.New("failed in Validating the quotaBucket: " + err.Error())
+				}
+
+				return nil
+
+			} else if syncMsgCountOK {
+				if syncMsgCountType := reflect.TypeOf(syncMsgCountValue); syncMsgCountType.Kind() != reflect.Float64 {
+					return errors.New(`invalid type : 'syncTimeInSec' should be a number`)
+				}
+				syncMsgCountFloat := value.(float64)
+				syncMsgCountInt := int64(syncMsgCountFloat)
+				newQBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel,
+					startTime, maxCount, weight, distributed, synchronous, -1, syncMsgCountInt)
+				if err != nil {
+					return errors.New("error creating quotaBucket: " + err.Error())
+				}
+				qBucket.quotaBucketData = newQBucket.quotaBucketData
+
+				if err := qBucket.Validate(); err != nil {
+					return errors.New("failed in Validating the quotaBucket: " + err.Error())
+				}
+
+				return nil
+			}
+		}
+
+		//for synchronous quotaBucket
+		newQBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel,
+			startTime, maxCount, weight, distributed, synchronous, -1, -1)
+		if err != nil {
+			return errors.New("error creating quotaBucket: " + err.Error())
+		}
+		qBucket.quotaBucketData = newQBucket.quotaBucketData
+
+		if err := qBucket.Validate(); err != nil {
+			return errors.New("failed in Validating the quotaBucket: " + err.Error())
+		}
+
+		return nil
+	}
+
+	//for non distributed quotaBucket
+	newQBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel,
+		startTime, maxCount, weight, distributed, false, -1, -1)
 	if err != nil {
 		return errors.New("error creating quotaBucket: " + err.Error())
 

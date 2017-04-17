@@ -2,44 +2,23 @@ package quotaBucket
 
 import (
 	"errors"
+	"github.com/30x/apidQuota/constants"
 	"strings"
 	"time"
 )
 
-const (
-	//add to acceptedTimeUnitList in init() if case any other new timeUnit is added
-	TimeUnitSECOND = "second"
-	TimeUnitMINUTE = "minute"
-	TimeUnitHOUR   = "hour"
-	TimeUnitDAY    = "day"
-	TimeUnitWEEK   = "week"
-	TimeUnitMONTH  = "month"
-
-	//add to acceptedBucketTypeList in init() if case any other new bucketType is added
-	QuotaBucketTypeSynchronous    = "synchronous"
-	QuotaBucketTypeAsynchronous   = "asynchronous"
-	QuotaBucketTypeNonDistributed = "nonDistributed"
-	//todo: Add other accepted bucketTypes
-
-	//errors
-	InvalidQuotaTimeUnitType   = "invalidQuotaTimeUnitType"
-	InvalidQuotaDescriptorType = "invalidQuotaTimeUnitType"
-	InvalidQuotaBucketType     = "invalidQuotaBucketType"
-	InvalidQuotaPeriod         = "invalidQuotaPeriod"
-)
-
 var (
-	acceptedTimeUnitList   map[string]bool
-	acceptedBucketTypeList map[string]bool
+	acceptedTimeUnitList map[string]bool
+	acceptedTypeList     map[string]bool
 )
 
 func init() {
 
-	acceptedTimeUnitList = map[string]bool{TimeUnitSECOND: true,
-		TimeUnitMINUTE: true, TimeUnitHOUR: true,
-		TimeUnitDAY: true, TimeUnitWEEK: true, TimeUnitMONTH: true}
-	acceptedBucketTypeList = map[string]bool{QuotaBucketTypeSynchronous: true,
-		QuotaBucketTypeAsynchronous: true, QuotaBucketTypeNonDistributed: true} //todo: add other accpeted bucketTypes
+	acceptedTimeUnitList = map[string]bool{constants.TimeUnitSECOND: true,
+		constants.TimeUnitMINUTE: true, constants.TimeUnitHOUR: true,
+		constants.TimeUnitDAY: true, constants.TimeUnitWEEK: true, constants.TimeUnitMONTH: true}
+	acceptedTypeList = map[string]bool{constants.QuotaTypeCalendar: true,
+		constants.QuotaTypeRollingWindow: true}
 
 }
 
@@ -88,7 +67,7 @@ func (qp *QuotaPeriod) Validate() (bool, error) {
 	if qp.startTime.Before(qp.endTime) {
 		return true, nil
 	}
-	return false, errors.New(InvalidQuotaPeriod + " : startTime in the period must be before endTime")
+	return false, errors.New(constants.InvalidQuotaPeriod + " : startTime in the period must be before endTime")
 
 }
 
@@ -97,13 +76,16 @@ type quotaBucketData struct {
 	ID                    string
 	Interval              int
 	TimeUnit              string //TimeUnit {SECOND, MINUTE, HOUR, DAY, WEEK, MONTH}
-	QuotaDescriptorType   string //Type {CALENDAR, FLEXI, ROLLING_WINDOW}
+	QuotaType             string //QuotaType {CALENDAR, FLEXI, ROLLING_WINDOW}
 	PreciseAtSecondsLevel bool
 	Period                QuotaPeriod
 	StartTime             time.Time
 	MaxCount              int64
-	BucketType            string // SyncDistributed, AsyncDistributed, NonDistributed
 	Weight                int64
+	Distributed           bool
+	Synchronous           bool
+	SyncTimeInSec         int64
+	SyncMessageCount      int64
 }
 
 type QuotaBucket struct {
@@ -112,7 +94,8 @@ type QuotaBucket struct {
 
 func NewQuotaBucket(edgeOrgID string, id string, interval int,
 	timeUnit string, quotaType string, preciseAtSecondsLevel bool,
-	startTime int64, maxCount int64, bucketType string, weight int64) (*QuotaBucket, error) {
+	startTime int64, maxCount int64, weight int64, distributed bool,
+	synchronous bool, syncTimeInSec int64, syncMessageCount int64) (*QuotaBucket, error) {
 
 	fromUNIXTime := time.Unix(startTime, 0)
 
@@ -121,12 +104,15 @@ func NewQuotaBucket(edgeOrgID string, id string, interval int,
 		ID:                    id,
 		Interval:              interval,
 		TimeUnit:              timeUnit,
-		QuotaDescriptorType:   quotaType,
+		QuotaType:             quotaType,
 		PreciseAtSecondsLevel: preciseAtSecondsLevel,
 		StartTime:             fromUNIXTime,
 		MaxCount:              maxCount,
-		BucketType:            bucketType,
 		Weight:                weight,
+		Distributed:           distributed,
+		Synchronous:           synchronous,
+		SyncTimeInSec:         syncTimeInSec,
+		SyncMessageCount:      syncMessageCount,
 	}
 
 	quotaBucket := &QuotaBucket{
@@ -145,19 +131,18 @@ func (q *QuotaBucket) Validate() error {
 
 	//check valid quotaTimeUnit
 	if ok := IsValidTimeUnit(strings.ToLower(q.GetTimeUnit())); !ok {
-		return errors.New(InvalidQuotaTimeUnitType)
+		return errors.New(constants.InvalidQuotaTimeUnitType)
 	}
 
-	//check valid quotaBucketType
-	if ok := IsValidQuotaBucketType(strings.ToLower(q.GetBucketType())); !ok {
-		return errors.New(InvalidQuotaBucketType)
+	if ok := IsValidType(strings.ToLower(q.GetType())); !ok {
+		return errors.New(constants.InvalidQuotaBucketType)
 	}
-
 	//check if the period is valid
 	period, err := q.GetQuotaBucketPeriod()
 	if err != nil {
 		return err
 	}
+
 	if ok, err := period.Validate(); !ok {
 		return errors.New("invalid Period: " + err.Error())
 	}
@@ -185,8 +170,8 @@ func (q *QuotaBucket) GetStartTime() time.Time {
 	return q.quotaBucketData.StartTime
 }
 
-func (q *QuotaBucket) GetQuotaDescriptorType() string {
-	return q.quotaBucketData.QuotaDescriptorType
+func (q *QuotaBucket) GetType() string {
+	return q.quotaBucketData.QuotaType
 }
 
 func (q *QuotaBucket) GetIsPreciseAtSecondsLevel() bool {
@@ -197,19 +182,22 @@ func (q *QuotaBucket) GetMaxCount() int64 {
 	return q.quotaBucketData.MaxCount
 }
 
-func (q *QuotaBucket) GetBucketType() string {
-	return q.quotaBucketData.BucketType
-}
-
 func (q *QuotaBucket) GetWeight() int64 {
 	return q.quotaBucketData.Weight
 }
 
+func (q *QuotaBucket) IsDistrubuted() bool {
+	return q.quotaBucketData.Distributed
+}
+
+func (q *QuotaBucket) IsSynchronous() bool {
+	return q.quotaBucketData.Synchronous
+}
 
 //Calls setCurrentPeriod if DescriptorType is 'rollingWindow' or period.endTime is before now().
 // It is required to setPeriod while incrementing the count.
 func (q *QuotaBucket) GetPeriod() (*QuotaPeriod, error) {
-	if q.quotaBucketData.QuotaDescriptorType == QuotaTypeRollingWindow {
+	if q.quotaBucketData.QuotaType == constants.QuotaTypeRollingWindow {
 		qRWType := RollingWindowQuotaDescriptorType{}
 		err := qRWType.SetCurrentPeriod(q)
 		if err != nil {
@@ -234,7 +222,7 @@ func (q *QuotaBucket) GetPeriod() (*QuotaPeriod, error) {
 
 //setCurrentPeriod only for rolling window else just return the value of QuotaPeriod.
 func (q *QuotaBucket) GetQuotaBucketPeriod() (*QuotaPeriod, error) {
-	if q.quotaBucketData.QuotaDescriptorType == QuotaTypeRollingWindow {
+	if q.quotaBucketData.QuotaType == constants.QuotaTypeRollingWindow {
 		qRWType := RollingWindowQuotaDescriptorType{}
 		err := qRWType.SetCurrentPeriod(q)
 		if err != nil {
@@ -260,7 +248,7 @@ func (q *QuotaBucket) SetPeriod(startTime time.Time, endTime time.Time) {
 
 func (q *QuotaBucket) setCurrentPeriod() error {
 
-	qDescriptorType, err := GetQuotaDescriptorTypeHandler(q.GetQuotaDescriptorType())
+	qDescriptorType, err := GetQuotaTypeHandler(q.GetType())
 	if err != nil {
 		return err
 	}
@@ -269,8 +257,8 @@ func (q *QuotaBucket) setCurrentPeriod() error {
 }
 
 func (period *QuotaPeriod) IsCurrentPeriod(qBucket *QuotaBucket) bool {
-	if qBucket != nil && qBucket.GetBucketType() != "" {
-		if qBucket.GetQuotaDescriptorType() == QuotaTypeRollingWindow {
+	if qBucket != nil && qBucket.GetType() != "" {
+		if qBucket.GetType() == constants.QuotaTypeRollingWindow {
 			return (period.inputStartTime.Equal(time.Now().UTC()) || period.inputStartTime.Before(time.Now().UTC()))
 		}
 
@@ -285,20 +273,22 @@ func (period *QuotaPeriod) IsCurrentPeriod(qBucket *QuotaBucket) bool {
 }
 
 func (q *QuotaBucket) ResetQuotaLimit() (*QuotaBucketResults, error) {
-	qBucketHandler, err := GetQuotaBucketHandler(q.BucketType)
+	bucketType, err := GetQuotaBucketHandler(q)
 	if err != nil {
-		return nil, errors.New("error getting QuotaBucketType: " + err.Error())
+		return nil, errors.New("error getting quotaBucketHandler: " + err.Error())
 	}
-	return qBucketHandler.resetQuotaForCurrentPeriod(q)
+
+	return bucketType.resetQuotaForCurrentPeriod(q)
 
 }
 
 func (q *QuotaBucket) IncrementQuotaLimit() (*QuotaBucketResults, error) {
 
-	qBucketHandler, err := GetQuotaBucketHandler(q.BucketType)
+	qBucketHandler, err := GetQuotaBucketHandler(q)
 	if err != nil {
-		return nil, errors.New("error getting QuotaBucketType: " + err.Error())
+		return nil, errors.New("error getting quotaBucketHandler: " + err.Error())
 	}
+
 	return qBucketHandler.incrementQuotaCount(q)
 
 }
@@ -310,8 +300,8 @@ func IsValidTimeUnit(timeUnit string) bool {
 	return false
 }
 
-func IsValidQuotaBucketType(bucketType string) bool {
-	if _, ok := acceptedBucketTypeList[bucketType]; ok {
+func IsValidType(qtype string) bool {
+	if _, ok := acceptedTypeList[qtype]; ok {
 		return true
 	}
 	return false

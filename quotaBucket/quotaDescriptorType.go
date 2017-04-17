@@ -2,32 +2,27 @@ package quotaBucket
 
 import (
 	"errors"
+	"github.com/30x/apidQuota/constants"
 	"strings"
 	"time"
-)
-
-const (
-	QuotaTypeCalendar      = "calendar"      // after start time
-	QuotaTypeFlexi         = "flexi"         //after first request
-	QuotaTypeRollingWindow = "rollingwindow" // in the past "window" time
 )
 
 type QuotaDescriptorType interface {
 	SetCurrentPeriod(bucket *QuotaBucket) error
 }
 
-func GetQuotaDescriptorTypeHandler(qType string) (QuotaDescriptorType, error) {
+func GetQuotaTypeHandler(qType string) (QuotaDescriptorType, error) {
 	var qDescriptor QuotaDescriptorType
 	quotaType := strings.ToLower(strings.TrimSpace(qType))
 	switch quotaType {
-	case QuotaTypeCalendar:
+	case constants.QuotaTypeCalendar:
 		qDescriptor = &CalendarQuotaDescriptorType{}
 		return qDescriptor, nil
-	case QuotaTypeRollingWindow:
+	case constants.QuotaTypeRollingWindow:
 		qDescriptor = &RollingWindowQuotaDescriptorType{}
 		return qDescriptor, nil
 	default:
-		return nil, errors.New(InvalidQuotaDescriptorType + " Quota type " + qType + " in the request is not supported")
+		return nil, errors.New(constants.InvalidQuotaType + " Quota type: " + qType + " in the request is not supported")
 
 	}
 }
@@ -49,9 +44,9 @@ func (c CalendarQuotaDescriptorType) SetCurrentPeriod(qbucket *QuotaBucket) erro
 			if currentPeriod.IsCurrentPeriod(qbucket) {
 				return nil
 			} else {
-				qBucketHandler, err := GetQuotaBucketHandler(qbucket.BucketType)
+				qBucketHandler, err := GetQuotaBucketHandler(qbucket)
 				if err != nil {
-					return errors.New("error getting QuotaBucketType: " + err.Error())
+					return errors.New("error retrieving qBucketHandler: " + err.Error())
 				}
 				qBucketHandler.resetCount(qbucket)
 			}
@@ -62,27 +57,27 @@ func (c CalendarQuotaDescriptorType) SetCurrentPeriod(qbucket *QuotaBucket) erro
 	now := time.Now().UTC()
 	timeUnit := strings.ToLower(strings.TrimSpace(qbucket.TimeUnit))
 	switch timeUnit {
-	case TimeUnitSECOND:
+	case constants.TimeUnitSECOND:
 		currentStart = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second(), 0, time.UTC)
 		secInDuration := time.Duration(int64(qbucket.Interval) * time.Second.Nanoseconds())
 		currentEnd = currentStart.Add(secInDuration)
 		break
-	case TimeUnitMINUTE:
+	case constants.TimeUnitMINUTE:
 		currentStart = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), 0, 0, time.UTC)
 		minInDuration := time.Duration(int64(qbucket.Interval) * time.Minute.Nanoseconds())
 		currentEnd = currentStart.Add(minInDuration)
 		break
-	case TimeUnitHOUR:
+	case constants.TimeUnitHOUR:
 		currentStart = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC)
 		hoursInDuration := time.Duration(int64(qbucket.Interval) * time.Hour.Nanoseconds())
 		currentEnd = currentStart.Add(hoursInDuration)
 
 		break
-	case TimeUnitDAY:
+	case constants.TimeUnitDAY:
 		currentStart = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 		currentEnd = currentStart.AddDate(0, 0, 1*qbucket.Interval)
 		break
-	case TimeUnitWEEK:
+	case constants.TimeUnitWEEK:
 		//todo
 		currentStart = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 		for currentStart.Weekday() != time.Monday {
@@ -90,12 +85,12 @@ func (c CalendarQuotaDescriptorType) SetCurrentPeriod(qbucket *QuotaBucket) erro
 		}
 		currentEnd = currentStart.AddDate(0, 0, 7*qbucket.Interval)
 		break
-	case TimeUnitMONTH:
+	case constants.TimeUnitMONTH:
 		currentStart = time.Date(now.Year(), now.Month(), 0, 0, 0, 0, 0, time.UTC)
 		currentEnd = currentStart.AddDate(0, qbucket.Interval, 0)
 		break
 	default:
-		return errors.New(InvalidQuotaTimeUnitType + " : ignoring unrecognized timeUnit : " + timeUnit)
+		return errors.New(constants.InvalidQuotaTimeUnitType + " : ignoring unrecognized timeUnit : " + timeUnit)
 
 	}
 
@@ -123,35 +118,35 @@ func GetIntervalDurtation(qb *QuotaBucket) (time.Duration, error) {
 
 	timeUnit := strings.ToLower(strings.TrimSpace(qb.TimeUnit))
 	switch timeUnit {
-	case TimeUnitSECOND:
+	case constants.TimeUnitSECOND:
 		return time.Duration(int64(qb.Interval) * time.Second.Nanoseconds()), nil
-	case TimeUnitMINUTE:
+	case constants.TimeUnitMINUTE:
 		return time.Duration(int64(qb.Interval) * time.Minute.Nanoseconds()), nil
-	case TimeUnitHOUR:
+	case constants.TimeUnitHOUR:
 		return time.Duration(int64(qb.Interval) * time.Hour.Nanoseconds()), nil
-	case TimeUnitDAY:
+	case constants.TimeUnitDAY:
 		return time.Duration(int64(qb.Interval*24) * time.Hour.Nanoseconds()), nil
-	case TimeUnitWEEK:
+	case constants.TimeUnitWEEK:
 		return time.Duration(int64(qb.Interval*24*7) * time.Hour.Nanoseconds()), nil
-	case TimeUnitMONTH:
+	case constants.TimeUnitMONTH:
 		now := time.Now().UTC()
 		var currentStart, currentEnd time.Time
-		quotaType := strings.ToLower(strings.TrimSpace(qb.QuotaDescriptorType))
+		quotaType := strings.ToLower(strings.TrimSpace(qb.QuotaType))
 		switch quotaType {
-		case QuotaTypeCalendar:
+		case constants.QuotaTypeCalendar:
 			currentStart = time.Date(now.Year(), now.Month(), 0, 0, 0, 0, 0, time.UTC)
 			currentEnd = currentStart.AddDate(0, qb.Interval, 0)
 			return currentEnd.Sub(currentStart), nil
-		case QuotaTypeRollingWindow:
+		case constants.QuotaTypeRollingWindow:
 			currentEnd = now
 			currentStart = currentEnd.AddDate(0, (-1)*qb.Interval, 0)
 			return currentEnd.Sub(currentStart), nil
 		default:
-			return time.Duration(0), errors.New(InvalidQuotaDescriptorType + " : ignoring unrecognized quotaType : " + quotaType)
+			return time.Duration(0), errors.New(constants.InvalidQuotaBucketType + " : ignoring unrecognized quotaType : " + quotaType)
 
 		}
 	default:
-		return time.Duration(0), errors.New(InvalidQuotaTimeUnitType + " : ignoring unrecognized timeUnit : " + timeUnit)
+		return time.Duration(0), errors.New(constants.InvalidQuotaTimeUnitType + " : ignoring unrecognized timeUnit : " + timeUnit)
 
 	}
 

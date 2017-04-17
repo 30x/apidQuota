@@ -2,9 +2,8 @@ package quotaBucket
 
 import (
 	"errors"
-	"strings"
-	"github.com/30x/apidQuota/services"
 	"fmt"
+	"github.com/30x/apidQuota/services"
 )
 
 type QuotaBucketType interface {
@@ -42,7 +41,7 @@ func (sQuotaBucket SynchronousQuotaBucketType) resetQuotaForCurrentPeriod(q *Quo
 
 }
 
-func (sQuotaBucket SynchronousQuotaBucketType) incrementQuotaCount(q *QuotaBucket) (*QuotaBucketResults, error){
+func (sQuotaBucket SynchronousQuotaBucketType) incrementQuotaCount(q *QuotaBucket) (*QuotaBucketResults, error) {
 
 	fmt.Println("increment count for sync")
 	maxCount := q.GetMaxCount()
@@ -98,10 +97,11 @@ func (sQuotaBucket SynchronousQuotaBucketType) incrementQuotaCount(q *QuotaBucke
 	return results, nil
 }
 
-type AsynchronousQuotaBucketType struct{
-	initialized bool
-
-
+type AsynchronousQuotaBucketType struct {
+	initialized      bool
+	globalCount      int64
+	syncMessageCount int64
+	syncTimeInSec    int64
 }
 
 func (quotaBucketType AsynchronousQuotaBucketType) resetCount(qBucket *QuotaBucket) error {
@@ -110,11 +110,14 @@ func (quotaBucketType AsynchronousQuotaBucketType) resetCount(qBucket *QuotaBuck
 }
 
 func (quotaBucketType AsynchronousQuotaBucketType) incrementQuotaCount(qBucket *QuotaBucket) (*QuotaBucketResults, error) {
+	//getCount()
+	fmt.Println("increment count for async")
+
 	return nil, nil
 }
 
 func (quotaBucketType AsynchronousQuotaBucketType) resetQuotaForCurrentPeriod(q *QuotaBucket) (*QuotaBucketResults, error) {
-	return nil,nil
+	return nil, nil
 }
 
 type NonDistributedQuotaBucketType struct{}
@@ -124,27 +127,29 @@ func (sQuotaBucket NonDistributedQuotaBucketType) resetCount(qBucket *QuotaBucke
 	return nil
 }
 func (sQuotaBucket NonDistributedQuotaBucketType) incrementQuotaCount(qBucket *QuotaBucket) (*QuotaBucketResults, error) {
+	fmt.Println("increment count for nondistributed.")
+
 	return nil, nil
 }
 func (sQuotaBucket NonDistributedQuotaBucketType) resetQuotaForCurrentPeriod(q *QuotaBucket) (*QuotaBucketResults, error) {
-	return nil,nil
+	return nil, nil
 }
 
-func GetQuotaBucketHandler(qBucket string) (QuotaBucketType, error) {
-	var quotaBucketType QuotaBucketType
-	qBucketType := strings.ToLower(strings.TrimSpace(qBucket))
-	switch qBucketType {
-	case QuotaBucketTypeSynchronous:
-		quotaBucketType = &SynchronousQuotaBucketType{}
+func GetQuotaBucketHandler(qBucket *QuotaBucket) (QuotaBucketType, error) {
+
+	if !qBucket.IsDistrubuted() {
+		quotaBucketType := &NonDistributedQuotaBucketType{}
 		return quotaBucketType, nil
-	case QuotaBucketTypeAsynchronous:
-		quotaBucketType = &AsynchronousQuotaBucketType{}
+	} else {
+		if qBucket.IsSynchronous() {
+			quotaBucketType := &SynchronousQuotaBucketType{}
+			return quotaBucketType, nil
+		}
+		quotaBucketType := &AsynchronousQuotaBucketType{}
 		return quotaBucketType, nil
-	case QuotaBucketTypeNonDistributed:
-		quotaBucketType = &NonDistributedQuotaBucketType{}
-		return quotaBucketType, nil
-	default:
-		return nil, errors.New("Ignoring unrecognized quota type in request: " + qBucket)
 
 	}
+
+	return nil, errors.New("ignoring: unrecognized quota type")
+
 }

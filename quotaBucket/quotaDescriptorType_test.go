@@ -1,6 +1,7 @@
 package quotaBucket_test
 
 import (
+	"github.com/30x/apidQuota/constants"
 	. "github.com/30x/apidQuota/quotaBucket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -11,7 +12,7 @@ import (
 
 var _ = Describe("Check Descriptor Type ", func() {
 	It("test Calendar Type descriptor", func() {
-		descriptorType, err := GetQuotaDescriptorTypeHandler("calendar")
+		descriptorType, err := GetQuotaTypeHandler("calendar")
 		Expect(err).NotTo(HaveOccurred())
 		if reflect.TypeOf(descriptorType) != reflect.TypeOf(&CalendarQuotaDescriptorType{}) {
 			Fail("Excepted CalendarQuotaDescriptorType, but got: " + reflect.TypeOf(descriptorType).String())
@@ -19,7 +20,7 @@ var _ = Describe("Check Descriptor Type ", func() {
 	})
 
 	It("test RollingWindow Type descriptor", func() {
-		descriptorType, err := GetQuotaDescriptorTypeHandler("rollingwindow")
+		descriptorType, err := GetQuotaTypeHandler("rollingwindow")
 		Expect(err).NotTo(HaveOccurred())
 		if reflect.TypeOf(descriptorType) != reflect.TypeOf(&RollingWindowQuotaDescriptorType{}) {
 			Fail("Excepted RollingWindowQuotaDescriptorType, but got: " + reflect.TypeOf(descriptorType).String())
@@ -27,10 +28,10 @@ var _ = Describe("Check Descriptor Type ", func() {
 	})
 
 	It("test invalid Type descriptor", func() {
-		_, err := GetQuotaDescriptorTypeHandler("invalxidDescriptorType")
+		_, err := GetQuotaTypeHandler("invalidDescriptorType")
 		Expect(err).To(HaveOccurred())
-		if !strings.Contains(err.Error(), InvalidQuotaDescriptorType) {
-			Fail("Excepted error to contain: " + InvalidQuotaDescriptorType + " but got: " + err.Error())
+		if !strings.Contains(err.Error(), constants.InvalidQuotaType) {
+			Fail("Excepted error to contain: " + constants.InvalidQuotaType + " but got: " + err.Error())
 		}
 	})
 })
@@ -43,15 +44,19 @@ var _ = Describe("QuotaDescriptorType", func() {
 		id := "sampleID"
 		timeUnit := "second"
 		quotaType := "calendar"
-		bucketType := "synchronous"
 		interval := 1
 		maxCount := int64(10)
 		weight := int64(1)
-
+		distributed := true
+		synchronous := true
+		syncTimeInSec := int64(-1)
+		syncMessageCount := int64(-1)
 		preciseAtSecondsLevel := true
 		startTime := time.Now().UTC().UTC().AddDate(0, -1, 0).Unix()
 
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -72,7 +77,9 @@ var _ = Describe("QuotaDescriptorType", func() {
 		// test set period for timeUnit=minute
 		timeUnit = "minute"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -93,7 +100,9 @@ var _ = Describe("QuotaDescriptorType", func() {
 		// test set period for timeUnit=hour
 		timeUnit = "hour"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -114,7 +123,9 @@ var _ = Describe("QuotaDescriptorType", func() {
 		// test set period for timeUnit=day
 		timeUnit = "day"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -135,7 +146,9 @@ var _ = Describe("QuotaDescriptorType", func() {
 		// test set period for timeUnit=week
 		timeUnit = "week"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -156,7 +169,9 @@ var _ = Describe("QuotaDescriptorType", func() {
 		// test set period for timeUnit=month
 		timeUnit = "month"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -185,14 +200,19 @@ var _ = Describe("QuotaDescriptorType", func() {
 		id := "sampleID"
 		timeUnit := "second"
 		quotaType := "calendar"
-		bucketType := "synchronous"
 		interval := 1
 		maxCount := int64(10)
 		weight := int64(1)
 		preciseAtSecondsLevel := true
 		startTime := time.Now().UTC().UTC().AddDate(0, -1, 0).Unix()
+		distributed := true
+		synchronous := true
+		syncTimeInSec := int64(-1)
+		syncMessageCount := int64(-1)
 
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -213,10 +233,12 @@ var _ = Describe("QuotaDescriptorType", func() {
 		// test set period for timeUnit=month
 		timeUnit = "invalidTimeUnit"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).To(HaveOccurred())
-		if ok := strings.Contains(err.Error(), InvalidQuotaTimeUnitType); !ok {
-			Fail("expected error to contain " + InvalidQuotaTimeUnitType + " but got different error message: " + err.Error())
+		if ok := strings.Contains(err.Error(), constants.InvalidQuotaTimeUnitType); !ok {
+			Fail("expected error to contain " + constants.InvalidQuotaTimeUnitType + " but got different error message: " + err.Error())
 		}
 
 	})
@@ -228,14 +250,19 @@ var _ = Describe("QuotaDescriptorType", func() {
 		id := "sampleID"
 		timeUnit := "second"
 		quotaType := "rollingWindow"
-		bucketType := "synchronous"
 		interval := 1
 		maxCount := int64(10)
 		weight := int64(1)
 		preciseAtSecondsLevel := true
 		startTime := time.Now().UTC().UTC().AddDate(0, -1, 0).Unix()
+		distributed := true
+		synchronous := true
+		syncTimeInSec := int64(-1)
+		syncMessageCount := int64(-1)
 
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -256,7 +283,9 @@ var _ = Describe("QuotaDescriptorType", func() {
 		// test set period for timeUnit=minute
 		timeUnit = "minute"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -277,7 +306,9 @@ var _ = Describe("QuotaDescriptorType", func() {
 		// test set period for timeUnit=hour
 		timeUnit = "hour"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -298,7 +329,9 @@ var _ = Describe("QuotaDescriptorType", func() {
 		// test set period for timeUnit=day
 		timeUnit = "day"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -319,7 +352,9 @@ var _ = Describe("QuotaDescriptorType", func() {
 		// test set period for timeUnit=week
 		timeUnit = "week"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -340,7 +375,9 @@ var _ = Describe("QuotaDescriptorType", func() {
 		// test set period for timeUnit=month
 		timeUnit = "month"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -369,14 +406,19 @@ var _ = Describe("QuotaDescriptorType", func() {
 		id := "sampleID"
 		timeUnit := "second"
 		quotaType := "rollingwindow"
-		bucketType := "synchronous"
 		interval := 1
 		maxCount := int64(10)
 		weight := int64(1)
 		preciseAtSecondsLevel := true
 		startTime := time.Now().UTC().UTC().AddDate(0, -1, 0).Unix()
+		distributed := true
+		synchronous := true
+		syncTimeInSec := int64(-1)
+		syncMessageCount := int64(-1)
 
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -397,10 +439,12 @@ var _ = Describe("QuotaDescriptorType", func() {
 		// test set period for timeUnit=month
 		timeUnit = "invalidTimeUnit"
 
-		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, startTime, maxCount, bucketType, weight)
+		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
+			quotaType, preciseAtSecondsLevel, startTime, maxCount,
+			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
 		Expect(err).To(HaveOccurred())
-		if ok := strings.Contains(err.Error(), InvalidQuotaTimeUnitType); !ok {
-			Fail("expected error to contain " + InvalidQuotaTimeUnitType + " but got different error message: " + err.Error())
+		if ok := strings.Contains(err.Error(), constants.InvalidQuotaTimeUnitType); !ok {
+			Fail("expected error to contain " + constants.InvalidQuotaTimeUnitType + " but got different error message: " + err.Error())
 		}
 
 	})

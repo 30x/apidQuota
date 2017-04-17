@@ -28,9 +28,8 @@ var client *http.Client = &http.Client{
 
 func GetCount(orgID string, quotaKey string, startTimeInt int64, endTimeInt int64) (int64, error) {
 
-	return IncrementAndGetCount(orgID, quotaKey,0,startTimeInt,endTimeInt)
+	return IncrementAndGetCount(orgID, quotaKey, 0, startTimeInt, endTimeInt)
 }
-
 
 func IncrementAndGetCount(orgID string, quotaKey string, count int64, startTimeInt int64, endTimeInt int64) (int64, error) {
 	fmt.Println("calling counter service")
@@ -74,6 +73,7 @@ func IncrementAndGetCount(orgID string, quotaKey string, count int64, startTimeI
 		ContentLength: int64(contentLength),
 	}
 
+	fmt.Println("req: ", request)
 	resp, err := client.Do(request)
 
 	if err != nil {
@@ -82,10 +82,10 @@ func IncrementAndGetCount(orgID string, quotaKey string, count int64, startTimeI
 
 	globalVariables.Log.Debug("response: ", resp)
 	if resp.StatusCode != http.StatusOK {
-		if resp.StatusCode == http.StatusNotFound {
-			return 0, errors.New(err.Error())
-		}
 		respBodyBytes, err := ioutil.ReadAll(resp.Body)
+		if resp.StatusCode == http.StatusNotFound {
+			return 0, errors.New("response from counter service: " + resp.Status + " and response body is: " + string(respBodyBytes))
+		}
 		if err != nil {
 
 		}
