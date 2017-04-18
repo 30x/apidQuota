@@ -1,6 +1,8 @@
 package globalVariables
 
-import "github.com/30x/apid-core"
+import (
+	"github.com/30x/apid-core"
+)
 
 var (
 	Log               apid.LogService

@@ -2,7 +2,6 @@ package quotaBucket
 
 import (
 	"errors"
-	"fmt"
 	"github.com/30x/apidQuota/services"
 )
 
@@ -43,7 +42,6 @@ func (sQuotaBucket SynchronousQuotaBucketType) resetQuotaForCurrentPeriod(q *Quo
 
 func (sQuotaBucket SynchronousQuotaBucketType) incrementQuotaCount(q *QuotaBucket) (*QuotaBucketResults, error) {
 
-	fmt.Println("increment count for sync")
 	maxCount := q.GetMaxCount()
 	exceededCount := false
 	allowedCount := int64(0)
@@ -104,15 +102,13 @@ type AsynchronousQuotaBucketType struct {
 	syncTimeInSec    int64
 }
 
-func (quotaBucketType AsynchronousQuotaBucketType) resetCount(qBucket *QuotaBucket) error {
+func (quotaBucketType AsynchronousQuotaBucketType) resetCount(q *QuotaBucket) error {
 	//yet to implement
 	return nil
 }
 
-func (quotaBucketType AsynchronousQuotaBucketType) incrementQuotaCount(qBucket *QuotaBucket) (*QuotaBucketResults, error) {
+func (quotaBucketType AsynchronousQuotaBucketType) incrementQuotaCount(q *QuotaBucket) (*QuotaBucketResults, error) {
 	//getCount()
-	fmt.Println("increment count for async")
-
 	return nil, nil
 }
 
@@ -127,7 +123,6 @@ func (sQuotaBucket NonDistributedQuotaBucketType) resetCount(qBucket *QuotaBucke
 	return nil
 }
 func (sQuotaBucket NonDistributedQuotaBucketType) incrementQuotaCount(qBucket *QuotaBucket) (*QuotaBucketResults, error) {
-	fmt.Println("increment count for nondistributed.")
 
 	return nil, nil
 }

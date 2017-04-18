@@ -3,6 +3,7 @@ package quotaBucket
 import (
 	"errors"
 	"github.com/30x/apidQuota/constants"
+	"github.com/30x/apidQuota/globalVariables"
 	"strings"
 	"time"
 )
@@ -86,6 +87,9 @@ type quotaBucketData struct {
 	Synchronous           bool
 	SyncTimeInSec         int64
 	SyncMessageCount      int64
+	AsyncMessageCounter int64
+	QTicker *time.Ticker
+
 }
 
 type QuotaBucket struct {
@@ -113,6 +117,8 @@ func NewQuotaBucket(edgeOrgID string, id string, interval int,
 		Synchronous:           synchronous,
 		SyncTimeInSec:         syncTimeInSec,
 		SyncMessageCount:      syncMessageCount,
+		AsyncMessageCounter: int64(-1),
+		QTicker: &time.Ticker{},
 	}
 
 	quotaBucket := &QuotaBucket{
@@ -123,6 +129,23 @@ func NewQuotaBucket(edgeOrgID string, id string, interval int,
 	if err != nil {
 		return nil, err
 	}
+
+	//for async SetAsyncMessageCounter to 0 and also start the scheduler
+	if distributed && !synchronous{
+		quotaBucket.SetAsyncMessageCounter(0)
+		quotaBucket.quotaBucketData.QTicker =  time.NewTicker(time.Second)
+		go func() {
+			count := 0
+			for t := range quotaBucket.quotaBucketData.QTicker.C {
+				globalVariables.Log.Debug("t: : ", t.String())
+				if count > 10 {
+					quotaBucket.getTicker().Stop()
+				}
+				count += 1
+			}
+		}()
+	}
+
 	return quotaBucket, nil
 
 }
@@ -194,6 +217,13 @@ func (q *QuotaBucket) IsSynchronous() bool {
 	return q.quotaBucketData.Synchronous
 }
 
+func (qbucket *QuotaBucket) SetAsyncMessageCounter(count int64) {
+	qbucket.quotaBucketData.AsyncMessageCounter = count
+}
+
+func (q *QuotaBucket) getTicker() *time.Ticker {
+	return q.quotaBucketData.QTicker
+}
 //Calls setCurrentPeriod if DescriptorType is 'rollingWindow' or period.endTime is before now().
 // It is required to setPeriod while incrementing the count.
 func (q *QuotaBucket) GetPeriod() (*QuotaPeriod, error) {

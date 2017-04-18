@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/30x/apidQuota/constants"
 	"github.com/30x/apidQuota/globalVariables"
 	"io/ioutil"
@@ -32,7 +31,6 @@ func GetCount(orgID string, quotaKey string, startTimeInt int64, endTimeInt int6
 }
 
 func IncrementAndGetCount(orgID string, quotaKey string, count int64, startTimeInt int64, endTimeInt int64) (int64, error) {
-	fmt.Println("calling counter service")
 	headers := http.Header{}
 	headers.Set("Accept", "application/json")
 	headers.Set("Content-Type", "application/json")
@@ -56,9 +54,6 @@ func IncrementAndGetCount(orgID string, quotaKey string, count int64, startTimeI
 	reqBody[startTime] = startTimeInt * int64(1000)
 	reqBody[endTime] = endTimeInt * int64(1000)
 
-	fmt.Println("startTime: ", startTimeInt)
-	fmt.Println("endTime: ", endTimeInt)
-
 	reqBodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
 		return 0, errors.New(constants.MarshalJSONError)
@@ -73,7 +68,6 @@ func IncrementAndGetCount(orgID string, quotaKey string, count int64, startTimeI
 		ContentLength: int64(contentLength),
 	}
 
-	fmt.Println("req: ", request)
 	resp, err := client.Do(request)
 
 	if err != nil {
@@ -104,7 +98,6 @@ func IncrementAndGetCount(orgID string, quotaKey string, count int64, startTimeI
 	if !ok {
 		return 0, errors.New(`invalid response from counter service. field 'count' not sent in the response`)
 	}
-	fmt.Println("respcount: ", respCount)
 
 	globalVariables.Log.Debug("responseCount: ", respCount)
 

@@ -407,23 +407,6 @@ var _ = Describe("IsCurrentPeriod", func() {
 			Fail("Exprected true, returned: false")
 		}
 
-		//end Time in period is now // cant set end time to now and tes.. by the time it evaluates isCurrentPeriod the period.endTime will be before time.now()
-		//fmt.Println("entTIme is now : ")
-		//startTime = time.Now().Unix()
-		//period = NewQuotaPeriod(time.Now().AddDate(0,-1,-1).Unix(),
-		//	time.Now().AddDate(0,0,-1).Unix(),
-		//	time.Now().Unix())
-		//quotaBucket = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel, period, startTime, maxCount, bucketType)
-		//err = quotaBucket.Validate()
-		//if err != nil {
-		//	Fail("no error expected but got error: " + err.Error())
-		//}
-		//
-		//period.IsCurrentPeriod(quotaBucket)
-		//if ok := period.IsCurrentPeriod(quotaBucket); !ok{
-		//	Fail("Exprected true, returned: false")
-		//}
-
 		//end Time in period is after now
 		startTime = time.Now().UTC().Unix()
 		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
