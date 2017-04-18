@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/30x/apidQuota/services"
+	"time"
 )
 
 type QuotaBucketType interface {
@@ -104,16 +105,24 @@ type AsynchronousQuotaBucketType struct {
 	syncTimeInSec    int64
 }
 
-func (quotaBucketType AsynchronousQuotaBucketType) resetCount(qBucket *QuotaBucket) error {
+func (quotaBucketType AsynchronousQuotaBucketType) resetCount(q *QuotaBucket) error {
 	//yet to implement
 	return nil
 }
 
-func (quotaBucketType AsynchronousQuotaBucketType) incrementQuotaCount(qBucket *QuotaBucket) (*QuotaBucketResults, error) {
+func (quotaBucketType AsynchronousQuotaBucketType) incrementQuotaCount(q *QuotaBucket) (*QuotaBucketResults, error) {
 	//getCount()
 	fmt.Println("increment count for async")
-
-	return nil, nil
+	results := &QuotaBucketResults{
+		EdgeOrgID:      q.GetEdgeOrgID(),
+		ID:             q.GetID(),
+		exceededTokens: true,
+		currentTokens:  51,
+		MaxCount:       50,
+		startedAt:      time.Now().Unix(),
+		expiresAt:      time.Now().Unix(),
+	}
+	return results, nil
 }
 
 func (quotaBucketType AsynchronousQuotaBucketType) resetQuotaForCurrentPeriod(q *QuotaBucket) (*QuotaBucketResults, error) {

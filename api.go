@@ -44,7 +44,6 @@ func checkQuotaLimitExceeded(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	fmt.Println("test1")
 
 	results, err := qBucket.IncrementQuotaLimit()
 	if err != nil {

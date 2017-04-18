@@ -4,6 +4,8 @@ import (
 	"errors"
 	"reflect"
 	"time"
+	"github.com/30x/apidQuota/constants"
+	"fmt"
 )
 
 const (
@@ -22,7 +24,9 @@ type QuotaBucketResults struct {
 	expiresAt      int64
 }
 
-func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}) error {
+func (qBucketRequest *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}) error {
+	fmt.Println("qBucketRequest: ", qBucketRequest.quotaBucketData )
+	var cacheKey string
 	var edgeOrgID, id, timeUnit, quotaType string
 	var interval int
 	var startTime, maxCount, weight int64
@@ -48,6 +52,7 @@ func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}
 	}
 	id = value.(string)
 
+	cacheKey = edgeOrgID + constants.CacheKeyDelimiter + id
 	value, ok = quotaBucketMap["interval"]
 	if !ok {
 		return errors.New(`missing field: 'interval' is required`)
@@ -159,18 +164,31 @@ func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}
 				if syncTimeType := reflect.TypeOf(syncTimeValue); syncTimeType.Kind() != reflect.Float64 {
 					return errors.New(`invalid type : 'syncTimeInSec' should be a number`)
 				}
-				syncTimeFloat := value.(float64)
+				syncTimeFloat := syncTimeValue.(float64)
 				syncTimeInt := int64(syncTimeFloat)
-				newQBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel,
-					startTime, maxCount, weight, distributed, synchronous, syncTimeInt, -1)
-				if err != nil {
-					return errors.New("error creating quotaBucket: " + err.Error())
-				}
-				qBucket.quotaBucketData = newQBucket.quotaBucketData
 
-				if err := qBucket.Validate(); err != nil {
-					return errors.New("failed in Validating the quotaBucket: " + err.Error())
+				//try to retrieve from cache
+				newQBucket, ok = getFromCache(cacheKey)
+
+				if !ok {
+					newQBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel,
+						startTime, maxCount, weight, distributed, synchronous, syncTimeInt, -1)
+					if err != nil {
+						return errors.New("error creating quotaBucket: " + err.Error())
+					}
+					fmt.Println("qbucket: ", qBucketRequest)
+					fmt.Println("newqbucket: ", newQBucket)
+
+					qBucketRequest.quotaBucketData = newQBucket.quotaBucketData
+
+					if err := qBucketRequest.Validate(); err != nil {
+						return errors.New("failed in Validating the quotaBucket: " + err.Error())
+					}
+
+					addToCache(qBucketRequest)
+					return nil
 				}
+				qBucketRequest.quotaBucketData = newQBucket.quotaBucketData
 
 				return nil
 
@@ -180,48 +198,75 @@ func (qBucket *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}
 				}
 				syncMsgCountFloat := value.(float64)
 				syncMsgCountInt := int64(syncMsgCountFloat)
-				newQBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel,
-					startTime, maxCount, weight, distributed, synchronous, -1, syncMsgCountInt)
-				if err != nil {
-					return errors.New("error creating quotaBucket: " + err.Error())
-				}
-				qBucket.quotaBucketData = newQBucket.quotaBucketData
+				//try to retrieve from cache
+				newQBucket, ok = getFromCache(cacheKey)
 
-				if err := qBucket.Validate(); err != nil {
-					return errors.New("failed in Validating the quotaBucket: " + err.Error())
+				if !ok {
+					newQBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel,
+						startTime, maxCount, weight, distributed, synchronous, -1, syncMsgCountInt)
+					if err != nil {
+						return errors.New("error creating quotaBucket: " + err.Error())
+					}
+					qBucketRequest.quotaBucketData = newQBucket.quotaBucketData
+
+					if err := qBucketRequest.Validate(); err != nil {
+						return errors.New("failed in Validating the quotaBucket: " + err.Error())
+					}
+
+					addToCache(qBucketRequest)
+					return nil
+
 				}
+				qBucketRequest.quotaBucketData = newQBucket.quotaBucketData
 
 				return nil
 			}
 		}
 
-		//for synchronous quotaBucket
-		newQBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel,
-			startTime, maxCount, weight, distributed, synchronous, -1, -1)
-		if err != nil {
-			return errors.New("error creating quotaBucket: " + err.Error())
-		}
-		qBucket.quotaBucketData = newQBucket.quotaBucketData
+		//try to retrieve from cache
+		newQBucket, ok = getFromCache(cacheKey)
 
-		if err := qBucket.Validate(); err != nil {
-			return errors.New("failed in Validating the quotaBucket: " + err.Error())
+		if !ok {
+			//for synchronous quotaBucket
+			newQBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel,
+				startTime, maxCount, weight, distributed, synchronous, -1, -1)
+			if err != nil {
+				return errors.New("error creating quotaBucket: " + err.Error())
+			}
+			qBucketRequest.quotaBucketData = newQBucket.quotaBucketData
+
+			if err := qBucketRequest.Validate(); err != nil {
+				return errors.New("failed in Validating the quotaBucket: " + err.Error())
+			}
+			addToCache(qBucketRequest)
+			return nil
 		}
 
+		qBucketRequest.quotaBucketData = newQBucket.quotaBucketData
 		return nil
 	}
 
-	//for non distributed quotaBucket
-	newQBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel,
-		startTime, maxCount, weight, distributed, false, -1, -1)
-	if err != nil {
-		return errors.New("error creating quotaBucket: " + err.Error())
 
-	}
+	//retrieveFromCache.
+	newQBucket, ok = getFromCache(cacheKey)
+	qBucketRequest.quotaBucketData = newQBucket.quotaBucketData
 
-	qBucket.quotaBucketData = newQBucket.quotaBucketData
+	if !ok {
+		//for non distributed quotaBucket
+		newQBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel,
+			startTime, maxCount, weight, distributed, false, -1, -1)
+		if err != nil {
+			return errors.New("error creating quotaBucket: " + err.Error())
 
-	if err := qBucket.Validate(); err != nil {
-		return errors.New("failed in Validating the quotaBucket: " + err.Error())
+		}
+
+		qBucketRequest.quotaBucketData = newQBucket.quotaBucketData
+
+		if err := qBucketRequest.Validate(); err != nil {
+			return errors.New("failed in Validating the quotaBucket: " + err.Error())
+		}
+
+		addToCache(qBucketRequest)
 	}
 
 	return nil
