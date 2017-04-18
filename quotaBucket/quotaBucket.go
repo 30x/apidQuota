@@ -3,9 +3,9 @@ package quotaBucket
 import (
 	"errors"
 	"github.com/30x/apidQuota/constants"
+	"github.com/30x/apidQuota/globalVariables"
 	"strings"
 	"time"
-	"fmt"
 )
 
 var (
@@ -87,6 +87,7 @@ type quotaBucketData struct {
 	Synchronous           bool
 	SyncTimeInSec         int64
 	SyncMessageCount      int64
+	AsyncMessageCounter int64
 	QTicker *time.Ticker
 
 }
@@ -116,6 +117,7 @@ func NewQuotaBucket(edgeOrgID string, id string, interval int,
 		Synchronous:           synchronous,
 		SyncTimeInSec:         syncTimeInSec,
 		SyncMessageCount:      syncMessageCount,
+		AsyncMessageCounter: int64(-1),
 		QTicker: &time.Ticker{},
 	}
 
@@ -128,14 +130,14 @@ func NewQuotaBucket(edgeOrgID string, id string, interval int,
 		return nil, err
 	}
 
-	//for async start the scheduler
+	//for async SetAsyncMessageCounter to 0 and also start the scheduler
 	if distributed && !synchronous{
+		quotaBucket.SetAsyncMessageCounter(0)
 		quotaBucket.quotaBucketData.QTicker =  time.NewTicker(time.Second)
 		go func() {
 			count := 0
-			fmt.Println("inside create ticker")
 			for t := range quotaBucket.quotaBucketData.QTicker.C {
-				fmt.Println("Ticker ticked ", t)
+				globalVariables.Log.Debug("t: : ", t.String())
 				if count > 10 {
 					quotaBucket.getTicker().Stop()
 				}
@@ -144,7 +146,6 @@ func NewQuotaBucket(edgeOrgID string, id string, interval int,
 		}()
 	}
 
-	fmt.Println("quotaBucketdata: " ,quotaBucket.quotaBucketData)
 	return quotaBucket, nil
 
 }
@@ -216,6 +217,9 @@ func (q *QuotaBucket) IsSynchronous() bool {
 	return q.quotaBucketData.Synchronous
 }
 
+func (qbucket *QuotaBucket) SetAsyncMessageCounter(count int64) {
+	qbucket.quotaBucketData.AsyncMessageCounter = count
+}
 
 func (q *QuotaBucket) getTicker() *time.Ticker {
 	return q.quotaBucketData.QTicker

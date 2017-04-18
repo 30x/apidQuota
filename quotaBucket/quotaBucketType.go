@@ -2,9 +2,7 @@ package quotaBucket
 
 import (
 	"errors"
-	"fmt"
 	"github.com/30x/apidQuota/services"
-	"time"
 )
 
 type QuotaBucketType interface {
@@ -44,7 +42,6 @@ func (sQuotaBucket SynchronousQuotaBucketType) resetQuotaForCurrentPeriod(q *Quo
 
 func (sQuotaBucket SynchronousQuotaBucketType) incrementQuotaCount(q *QuotaBucket) (*QuotaBucketResults, error) {
 
-	fmt.Println("increment count for sync")
 	maxCount := q.GetMaxCount()
 	exceededCount := false
 	allowedCount := int64(0)
@@ -112,17 +109,7 @@ func (quotaBucketType AsynchronousQuotaBucketType) resetCount(q *QuotaBucket) er
 
 func (quotaBucketType AsynchronousQuotaBucketType) incrementQuotaCount(q *QuotaBucket) (*QuotaBucketResults, error) {
 	//getCount()
-	fmt.Println("increment count for async")
-	results := &QuotaBucketResults{
-		EdgeOrgID:      q.GetEdgeOrgID(),
-		ID:             q.GetID(),
-		exceededTokens: true,
-		currentTokens:  51,
-		MaxCount:       50,
-		startedAt:      time.Now().Unix(),
-		expiresAt:      time.Now().Unix(),
-	}
-	return results, nil
+	return nil, nil
 }
 
 func (quotaBucketType AsynchronousQuotaBucketType) resetQuotaForCurrentPeriod(q *QuotaBucket) (*QuotaBucketResults, error) {
@@ -136,7 +123,6 @@ func (sQuotaBucket NonDistributedQuotaBucketType) resetCount(qBucket *QuotaBucke
 	return nil
 }
 func (sQuotaBucket NonDistributedQuotaBucketType) incrementQuotaCount(qBucket *QuotaBucket) (*QuotaBucketResults, error) {
-	fmt.Println("increment count for nondistributed.")
 
 	return nil, nil
 }

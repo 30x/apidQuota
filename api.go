@@ -2,7 +2,6 @@ package apidQuota
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/30x/apid-core"
 	"github.com/30x/apidQuota/constants"
 	"github.com/30x/apidQuota/globalVariables"
@@ -51,7 +50,6 @@ func checkQuotaLimitExceeded(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	fmt.Println("test2 : ", results)
 	respMap := results.ToAPIResponse()
 	respbytes, err := json.Marshal(respMap)
 

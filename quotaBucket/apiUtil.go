@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"time"
 	"github.com/30x/apidQuota/constants"
-	"fmt"
 )
 
 const (
@@ -25,7 +24,6 @@ type QuotaBucketResults struct {
 }
 
 func (qBucketRequest *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}) error {
-	fmt.Println("qBucketRequest: ", qBucketRequest.quotaBucketData )
 	var cacheKey string
 	var edgeOrgID, id, timeUnit, quotaType string
 	var interval int
@@ -176,8 +174,6 @@ func (qBucketRequest *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]inte
 					if err != nil {
 						return errors.New("error creating quotaBucket: " + err.Error())
 					}
-					fmt.Println("qbucket: ", qBucketRequest)
-					fmt.Println("newqbucket: ", newQBucket)
 
 					qBucketRequest.quotaBucketData = newQBucket.quotaBucketData
 
