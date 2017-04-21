@@ -236,6 +236,7 @@ var _ = Describe("QuotaDescriptorType", func() {
 		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
 			quotaType, preciseAtSecondsLevel, startTime, maxCount,
 			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+		err = quotaBucket.Validate()
 		Expect(err).To(HaveOccurred())
 		if ok := strings.Contains(err.Error(), constants.InvalidQuotaTimeUnitType); !ok {
 			Fail("expected error to contain " + constants.InvalidQuotaTimeUnitType + " but got different error message: " + err.Error())
@@ -442,6 +443,7 @@ var _ = Describe("QuotaDescriptorType", func() {
 		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
 			quotaType, preciseAtSecondsLevel, startTime, maxCount,
 			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+		err = quotaBucket.Validate()
 		Expect(err).To(HaveOccurred())
 		if ok := strings.Contains(err.Error(), constants.InvalidQuotaTimeUnitType); !ok {
 			Fail("expected error to contain " + constants.InvalidQuotaTimeUnitType + " but got different error message: " + err.Error())

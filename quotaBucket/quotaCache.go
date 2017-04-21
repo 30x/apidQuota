@@ -2,8 +2,8 @@ package quotaBucket
 
 import (
 	"github.com/30x/apidQuota/constants"
-	"time"
 	"sync"
+	"time"
 )
 
 var quotaCachelock = sync.RWMutex{}
@@ -19,44 +19,57 @@ func init() {
 	quotaCache = make(map[string]quotaBucketCache)
 }
 
-func getFromCache(cacheKey string) (*QuotaBucket,bool) {
+func getFromCache(cacheKey string, weight int64) (*QuotaBucket, bool) {
 	quotaCachelock.Lock()
-	defer quotaCachelock.Unlock()
 	qBucketCache, ok := quotaCache[cacheKey]
+	quotaCachelock.Unlock()
+
 	if !ok {
-		return nil,false
+		return nil, false
 	}
 
 	isExpired := time.Unix(qBucketCache.expiryTime, 0).Before(time.Now().UTC())
 	if isExpired {
+
 		removeFromCache(cacheKey, qBucketCache)
 		return nil, false
 	}
 
 	// update expiry time every time you access.
+	qBucketCache.qBucket.Weight = weight
 	ttl := time.Now().UTC().Add(constants.CacheTTL).Unix()
 	qBucketCache.expiryTime = ttl
+
+	quotaCachelock.Lock()
 	quotaCache[cacheKey] = qBucketCache
+	quotaCachelock.Unlock()
 
 	return qBucketCache.qBucket, true
 
 }
 
-func removeFromCache(cacheKey string, qBucketCache quotaBucketCache) {
+func removeFromCache(cacheKey string, qBucketCache quotaBucketCache) error {
 	//for async Stop the scheduler.
-	if qBucketCache.qBucket.Distributed && !qBucketCache.qBucket.IsSynchronous(){
-		qBucketCache.qBucket.getTicker().Stop()
+
+	if qBucketCache.qBucket.Distributed && !qBucketCache.qBucket.IsSynchronous() {
+		aSyncBucket := qBucketCache.qBucket.GetAsyncQuotaBucket()
+		qticker, err := aSyncBucket.getAsyncQTicker()
+		if err != nil {
+			return err
+		}
+		qticker.Stop()
 	}
 
 	quotaCachelock.Lock()
-	delete(quotaCache,cacheKey)
+	delete(quotaCache, cacheKey)
 	quotaCachelock.Unlock()
+	return nil
 }
 
 func addToCache(qBucketToAdd *QuotaBucket) {
+
 	cacheKey := qBucketToAdd.GetEdgeOrgID() + constants.CacheKeyDelimiter + qBucketToAdd.GetID()
 	ttl := time.Now().UTC().Add(constants.CacheTTL).Unix()
-
 	qCacheData := quotaBucketCache{
 		qBucket:    qBucketToAdd,
 		expiryTime: ttl,

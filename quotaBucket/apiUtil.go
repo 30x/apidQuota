@@ -2,9 +2,9 @@ package quotaBucket
 
 import (
 	"errors"
+	"github.com/30x/apidQuota/constants"
 	"reflect"
 	"time"
-	"github.com/30x/apidQuota/constants"
 )
 
 const (
@@ -14,13 +14,13 @@ const (
 )
 
 type QuotaBucketResults struct {
-	EdgeOrgID      string
-	ID             string
-	MaxCount       int64
-	exceededTokens bool
-	currentTokens  int64
-	startedAt      int64
-	expiresAt      int64
+	EdgeOrgID        string
+	ID               string
+	MaxCount         int64
+	exceeded         bool
+	remainingCount   int64
+	startTimestamp   int64
+	expiresTimestamp int64
 }
 
 func (qBucketRequest *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]interface{}) error {
@@ -50,7 +50,9 @@ func (qBucketRequest *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]inte
 	}
 	id = value.(string)
 
+	//build cacheKey - to retrieve from or add to quotaCache
 	cacheKey = edgeOrgID + constants.CacheKeyDelimiter + id
+
 	value, ok = quotaBucketMap["interval"]
 	if !ok {
 		return errors.New(`missing field: 'interval' is required`)
@@ -166,7 +168,7 @@ func (qBucketRequest *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]inte
 				syncTimeInt := int64(syncTimeFloat)
 
 				//try to retrieve from cache
-				newQBucket, ok = getFromCache(cacheKey)
+				newQBucket, ok = getFromCache(cacheKey, weight)
 
 				if !ok {
 					newQBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel,
@@ -178,7 +180,7 @@ func (qBucketRequest *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]inte
 					qBucketRequest.quotaBucketData = newQBucket.quotaBucketData
 
 					if err := qBucketRequest.Validate(); err != nil {
-						return errors.New("failed in Validating the quotaBucket: " + err.Error())
+						return errors.New("error validating quotaBucket: " + err.Error())
 					}
 
 					addToCache(qBucketRequest)
@@ -192,10 +194,10 @@ func (qBucketRequest *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]inte
 				if syncMsgCountType := reflect.TypeOf(syncMsgCountValue); syncMsgCountType.Kind() != reflect.Float64 {
 					return errors.New(`invalid type : 'syncTimeInSec' should be a number`)
 				}
-				syncMsgCountFloat := value.(float64)
+				syncMsgCountFloat := syncMsgCountValue.(float64)
 				syncMsgCountInt := int64(syncMsgCountFloat)
 				//try to retrieve from cache
-				newQBucket, ok = getFromCache(cacheKey)
+				newQBucket, ok = getFromCache(cacheKey, weight)
 
 				if !ok {
 					newQBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit, quotaType, preciseAtSecondsLevel,
@@ -206,7 +208,7 @@ func (qBucketRequest *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]inte
 					qBucketRequest.quotaBucketData = newQBucket.quotaBucketData
 
 					if err := qBucketRequest.Validate(); err != nil {
-						return errors.New("failed in Validating the quotaBucket: " + err.Error())
+						return errors.New("error validating quotaBucket: " + err.Error())
 					}
 
 					addToCache(qBucketRequest)
@@ -220,7 +222,7 @@ func (qBucketRequest *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]inte
 		}
 
 		//try to retrieve from cache
-		newQBucket, ok = getFromCache(cacheKey)
+		newQBucket, ok = getFromCache(cacheKey, weight)
 
 		if !ok {
 			//for synchronous quotaBucket
@@ -232,7 +234,7 @@ func (qBucketRequest *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]inte
 			qBucketRequest.quotaBucketData = newQBucket.quotaBucketData
 
 			if err := qBucketRequest.Validate(); err != nil {
-				return errors.New("failed in Validating the quotaBucket: " + err.Error())
+				return errors.New("error validating quotaBucket: " + err.Error())
 			}
 			addToCache(qBucketRequest)
 			return nil
@@ -242,10 +244,8 @@ func (qBucketRequest *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]inte
 		return nil
 	}
 
-
 	//retrieveFromCache.
-	newQBucket, ok = getFromCache(cacheKey)
-	qBucketRequest.quotaBucketData = newQBucket.quotaBucketData
+	newQBucket, ok = getFromCache(cacheKey, weight)
 
 	if !ok {
 		//for non distributed quotaBucket
@@ -259,11 +259,12 @@ func (qBucketRequest *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]inte
 		qBucketRequest.quotaBucketData = newQBucket.quotaBucketData
 
 		if err := qBucketRequest.Validate(); err != nil {
-			return errors.New("failed in Validating the quotaBucket: " + err.Error())
+			return errors.New("error validating quotaBucket: " + err.Error())
 		}
 
 		addToCache(qBucketRequest)
 	}
+	qBucketRequest.quotaBucketData = newQBucket.quotaBucketData
 
 	return nil
 
@@ -274,10 +275,10 @@ func (qBucketResults *QuotaBucketResults) ToAPIResponse() map[string]interface{}
 	resultsMap[reqEdgeOrgID] = qBucketResults.ID
 	resultsMap[reqID] = qBucketResults.ID
 	resultsMap[reqMaxCount] = qBucketResults.MaxCount
-	resultsMap["exceededTokens"] = qBucketResults.exceededTokens
-	resultsMap["currentTokens"] = qBucketResults.currentTokens
-	resultsMap["startedAt"] = qBucketResults.startedAt
-	resultsMap["expiresAt"] = qBucketResults.expiresAt
+	resultsMap["exceeded"] = qBucketResults.exceeded
+	resultsMap["remainingCount"] = qBucketResults.remainingCount
+	resultsMap["startTimestamp"] = qBucketResults.startTimestamp
+	resultsMap["expiresTimestamp"] = qBucketResults.expiresTimestamp
 
 	return resultsMap
 }

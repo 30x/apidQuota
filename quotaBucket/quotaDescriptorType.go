@@ -8,7 +8,7 @@ import (
 )
 
 type QuotaDescriptorType interface {
-	SetCurrentPeriod(bucket *QuotaBucket) error
+	GetCurrentPeriod(bucket *QuotaBucket) (*quotaPeriod, error)
 }
 
 func GetQuotaTypeHandler(qType string) (QuotaDescriptorType, error) {
@@ -29,29 +29,7 @@ func GetQuotaTypeHandler(qType string) (QuotaDescriptorType, error) {
 
 type CalendarQuotaDescriptorType struct{}
 
-func (c CalendarQuotaDescriptorType) SetCurrentPeriod(qbucket *QuotaBucket) error {
-	startTime := qbucket.GetStartTime()
-	currentPeriod, err := qbucket.GetQuotaBucketPeriod()
-	if err != nil {
-		return err
-	}
-	if startTime.Before(time.Now().UTC()) || startTime.Equal(time.Now().UTC()) {
-		if currentPeriod != nil {
-			if currentPeriod.IsCurrentPeriod(qbucket) {
-				return nil
-			}
-		} else {
-			if currentPeriod.IsCurrentPeriod(qbucket) {
-				return nil
-			} else {
-				qBucketHandler, err := GetQuotaBucketHandler(qbucket)
-				if err != nil {
-					return errors.New("error retrieving qBucketHandler: " + err.Error())
-				}
-				qBucketHandler.resetCount(qbucket)
-			}
-		}
-	}
+func (c *CalendarQuotaDescriptorType) GetCurrentPeriod(qbucket *QuotaBucket) (*quotaPeriod, error) {
 
 	var currentStart, currentEnd time.Time
 	now := time.Now().UTC()
@@ -78,7 +56,6 @@ func (c CalendarQuotaDescriptorType) SetCurrentPeriod(qbucket *QuotaBucket) erro
 		currentEnd = currentStart.AddDate(0, 0, 1*qbucket.Interval)
 		break
 	case constants.TimeUnitWEEK:
-		//todo
 		currentStart = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 		for currentStart.Weekday() != time.Monday {
 			currentStart = currentStart.AddDate(0, 0, -1)
@@ -90,29 +67,34 @@ func (c CalendarQuotaDescriptorType) SetCurrentPeriod(qbucket *QuotaBucket) erro
 		currentEnd = currentStart.AddDate(0, qbucket.Interval, 0)
 		break
 	default:
-		return errors.New(constants.InvalidQuotaTimeUnitType + " : ignoring unrecognized timeUnit : " + timeUnit)
+		return nil, errors.New(constants.InvalidQuotaTimeUnitType + " : ignoring unrecognized timeUnit : " + timeUnit)
 
 	}
 
-	qbucket.SetPeriod(currentStart, currentEnd)
-	return nil
+	return &quotaPeriod{
+		inputStartTime: qbucket.GetStartTime(),
+		startTime:      currentStart,
+		endTime:        currentEnd,
+	}, nil
 }
 
 type RollingWindowQuotaDescriptorType struct{}
 
-func (c RollingWindowQuotaDescriptorType) SetCurrentPeriod(qbucket *QuotaBucket) error {
+func (c *RollingWindowQuotaDescriptorType) GetCurrentPeriod(qbucket *QuotaBucket) (*quotaPeriod, error) {
 
 	//yet to implement
 	var currentStart, currentEnd time.Time
 	currentEnd = time.Now().UTC()
 	interval, err := GetIntervalDurtation(qbucket)
 	if err != nil {
-		return errors.New("error in SetCurrentPeriod: " + err.Error())
+		return nil, errors.New("error in SetCurrentPeriod: " + err.Error())
 	}
 	currentStart = currentEnd.Add(-interval)
-	qbucket.SetPeriod(currentStart, currentEnd)
-
-	return nil
+	return &quotaPeriod{
+		inputStartTime: qbucket.GetStartTime(),
+		startTime:      currentStart,
+		endTime:        currentEnd,
+	}, nil
 }
 func GetIntervalDurtation(qb *QuotaBucket) (time.Duration, error) {
 
