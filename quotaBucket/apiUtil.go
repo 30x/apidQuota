@@ -244,6 +244,7 @@ func (qBucketRequest *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]inte
 		return nil
 	}
 
+	//for non distributed quotaBucket
 	//retrieveFromCache.
 	newQBucket, ok = getFromCache(cacheKey, weight)
 

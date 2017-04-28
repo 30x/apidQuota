@@ -31,14 +31,14 @@ type quotaPeriod struct {
 	endTime        time.Time
 }
 
-func (qp *quotaPeriod) GetPeriodStartTime() time.Time {
-
-	return qp.startTime
-}
-
 func (qp *quotaPeriod) GetPeriodInputStartTime() time.Time {
 
 	return qp.inputStartTime
+}
+
+func (qp *quotaPeriod) GetPeriodStartTime() time.Time {
+
+	return qp.startTime
 }
 
 func (qp *quotaPeriod) GetPeriodEndTime() time.Time {
@@ -65,44 +65,12 @@ type aSyncQuotaBucket struct {
 	qTicker                *time.Ticker
 }
 
-func (qAsync *aSyncQuotaBucket) getAsyncGlobalCount() (int64, error) {
-
-	if qAsync != nil {
-		return qAsync.asyncGLobalCount, nil
-	}
-	return 0, errors.New("aSyncDetails for QuotaBucket are empty.")
-}
-
-func (qAsync *aSyncQuotaBucket) getAsyncQTicker() (*time.Ticker, error) {
-
-	if qAsync != nil {
-		return qAsync.qTicker, nil
-	}
-	return nil, errors.New("AsyncDetails for QuotaBucket are empty.")
-}
-
-func (qAsync *aSyncQuotaBucket) addToAsyncLocalMessageCount(count int64) error {
-
-	if qAsync != nil {
-		atomic.AddInt64(&qAsync.asyncLocalMessageCount, count)
-	}
-	return errors.New("AsyncDetails for QuotaBucket are empty. ")
-}
-
-func (qAsync *aSyncQuotaBucket) getAsyncLocalMessageCount() (int64, error) {
-
-	if qAsync != nil {
-		return qAsync.asyncLocalMessageCount, nil
-	}
-	return 0, errors.New("AsyncDetails for QuotaBucket are empty. ")
-}
-
 func (qAsync *aSyncQuotaBucket) getAsyncSyncTime() (int64, error) {
 
 	if qAsync != nil {
 		return qAsync.syncTimeInSec, nil
 	}
-	return 0, errors.New("AsyncDetails for QuotaBucket are empty. ")
+	return 0, errors.New(constants.AsyncQuotaBucketEmpty)
 }
 
 func (qAsync *aSyncQuotaBucket) getAsyncSyncMessageCount() (int64, error) {
@@ -110,7 +78,31 @@ func (qAsync *aSyncQuotaBucket) getAsyncSyncMessageCount() (int64, error) {
 	if qAsync != nil {
 		return qAsync.syncMessageCount, nil
 	}
-	return 0, errors.New("AsyncDetails for QuotaBucket are empty. ")
+	return 0, errors.New(constants.AsyncQuotaBucketEmpty)
+}
+
+func (qAsync *aSyncQuotaBucket) getAsyncLocalMessageCount() (int64, error) {
+
+	if qAsync != nil {
+		return qAsync.asyncLocalMessageCount, nil
+	}
+	return 0, errors.New(constants.AsyncQuotaBucketEmpty)
+}
+
+func (qAsync *aSyncQuotaBucket) addToAsyncLocalMessageCount(count int64) error {
+
+	if qAsync != nil {
+		atomic.AddInt64(&qAsync.asyncLocalMessageCount, count)
+	}
+	return errors.New(constants.AsyncQuotaBucketEmpty)
+}
+
+func (qAsync *aSyncQuotaBucket) getAsyncGlobalCount() (int64, error) {
+
+	if qAsync != nil {
+		return qAsync.asyncGLobalCount, nil
+	}
+	return 0, errors.New(constants.AsyncQuotaBucketEmpty)
 }
 
 func (qAsync *aSyncQuotaBucket) getAsyncIsInitialized() (bool, error) {
@@ -118,7 +110,33 @@ func (qAsync *aSyncQuotaBucket) getAsyncIsInitialized() (bool, error) {
 	if qAsync != nil {
 		return qAsync.initialized, nil
 	}
-	return false, errors.New("AsyncDetails for QuotaBucket are empty. ")
+	return false, errors.New(constants.AsyncQuotaBucketEmpty)
+}
+
+func (qAsync *aSyncQuotaBucket) getAsyncQTicker() (*time.Ticker, error) {
+
+	if qAsync != nil {
+		return qAsync.qTicker, nil
+	}
+	return nil, errors.New(constants.AsyncQuotaBucketEmpty)
+}
+
+func (qAsync *aSyncQuotaBucket) getAsyncCounter() (*[]int64, error) {
+
+	if qAsync != nil {
+		return qAsync.asyncCounter, nil
+	}
+	return nil, errors.New(constants.AsyncQuotaBucketEmpty)
+}
+
+func (aSyncbucket *aSyncQuotaBucket) addToCounter(weight int64) error {
+
+	if aSyncbucket == nil {
+		return errors.New(constants.AsyncQuotaBucketEmpty)
+	}
+
+	*aSyncbucket.asyncCounter = append(*aSyncbucket.asyncCounter, weight)
+	return nil
 }
 
 func (aSyncbucket *aSyncQuotaBucket) getCount(q *QuotaBucket, period *quotaPeriod) (int64, error) {
@@ -135,16 +153,6 @@ func (aSyncbucket *aSyncQuotaBucket) getCount(q *QuotaBucket, period *quotaPerio
 	}
 
 	return aSyncbucket.asyncGLobalCount + aSyncbucket.asyncLocalMessageCount, nil
-}
-
-func (aSyncbucket *aSyncQuotaBucket) addToCounter(weight int64) error {
-
-	if aSyncbucket == nil {
-		return errors.New("AsyncDetails for QuotaBucket are empty. ")
-	}
-
-	*aSyncbucket.asyncCounter = append(*aSyncbucket.asyncCounter, weight)
-	return nil
 }
 
 type quotaBucketData struct {
@@ -191,9 +199,18 @@ func NewQuotaBucket(edgeOrgID string, id string, interval int,
 		quotaBucketData: quotaBucketDataStruct,
 	}
 
+	if !quotaBucket.IsDistrubuted() {
+		if quotaBucket.IsSynchronous(){
+			return nil, errors.New("quota bucket cannot be both nonDistributed and synchronous.")
+		}
+	}
 	//for async set AsyncQuotaDetails and start the NewTicker
 	if distributed && !synchronous {
 		var quotaTicker int64
+		//ensure just one of syncTimeInSec and syncMessageCount is set.
+		if syncTimeInSec > -1 && syncMessageCount > -1 {
+			return nil,errors.New("both syncTimeInSec and syncMessageCount canot be set. only one of them should be set.")
+		}
 		//set default syncTime for AsyncQuotaBucket.
 		//for aSyncQuotaBucket with 'syncMessageCount' the ticker is invoked with DefaultQuotaSyncTime
 		quotaTicker = constants.DefaultQuotaSyncTime
@@ -260,7 +277,7 @@ func (q *QuotaBucket) Validate() error {
 	}
 
 	if ok := IsValidType(strings.ToLower(q.GetType())); !ok {
-		return errors.New(constants.InvalidQuotaBucketType)
+		return errors.New(constants.InvalidQuotaType)
 	}
 
 	//check if the period is valid

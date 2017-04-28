@@ -3,6 +3,9 @@ package constants
 import "time"
 
 const (
+	//config variables.
+	ApigeeSyncBearerToken = "apigeesync_bearer_token"
+	ConfigCounterServiceBasePath = "apidquota_counterService_base_path"
 
 	//add to acceptedTimeUnitList in init() if case any other new timeUnit is added
 	TimeUnitSECOND = "second"
@@ -14,9 +17,9 @@ const (
 
 	//errors
 	InvalidQuotaTimeUnitType = "invalidQuotaTimeUnitType"
-	InvalidQuotaBucketType   = "invalidQuotaType"
-	InvalidQuotaType         = "invalidQUotaType"
+	InvalidQuotaType         = "invalidQuotaType"
 	InvalidQuotaPeriod       = "invalidQuotaPeriod"
+	AsyncQuotaBucketEmpty = "AsyncDetails_for_quotaBucket_are_empty"
 
 	QuotaTypeCalendar      = "calendar"      // after start time
 	QuotaTypeRollingWindow = "rollingwindow" // in the past "window" time
@@ -33,7 +36,6 @@ const (
 	ErrorCheckingQuotaLimit     = "error_checking_quota_limit"
 	QuotaBasePathDefault        = "/quota"
 
-	ConfigCounterServiceBasePath = "counterService_base_path"
 	URLCounterServiceNotSet      = "url_counter_service_not_set"
 	URLCounterServiceInvalid     = "url_counter_service_invalid"
 	MarshalJSONError             = "marshal_JSON_error"

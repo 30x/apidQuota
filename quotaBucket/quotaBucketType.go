@@ -3,6 +3,7 @@ package quotaBucket
 import (
 	"errors"
 	"github.com/30x/apidQuota/services"
+	"github.com/30x/apidQuota/constants"
 )
 
 type QuotaBucketType interface {
@@ -89,6 +90,9 @@ func (quotaBucketType AsynchronousQuotaBucketType) incrementQuotaCount(q *QuotaB
 		return nil, errors.New("error getting period: " + err.Error())
 	}
 	aSyncBucket := q.GetAsyncQuotaBucket()
+	if aSyncBucket == nil {
+		return nil, errors.New(constants.AsyncQuotaBucketEmpty + " : aSyncQuotaBucket to increment cannot be empty.")
+	}
 	currentCount, err := aSyncBucket.getCount(q, period)
 	if err != nil {
 		return nil, err
@@ -114,13 +118,22 @@ func (quotaBucketType AsynchronousQuotaBucketType) incrementQuotaCount(q *QuotaB
 
 			}
 
-			if aSyncBucket.syncMessageCount > 0 &&
-				aSyncBucket.asyncLocalMessageCount >= aSyncBucket.syncMessageCount {
+			asyncMessageCount, err := aSyncBucket.getAsyncSyncMessageCount()
+			if err != nil {
+				return nil, err
+			}
+
+			asyncLocalMsgCount,err := aSyncBucket.getAsyncLocalMessageCount()
+			if err != nil {
+				return nil, err
+			}
+
+			if asyncMessageCount > 0 &&
+				asyncLocalMsgCount >= asyncMessageCount {
 				err = internalRefresh(q, period)
 				if err != nil {
 					return nil, err
 				}
-
 			}
 		} else {
 			exceeded = true
@@ -147,11 +160,18 @@ func (quotaBucketType AsynchronousQuotaBucketType) incrementQuotaCount(q *QuotaB
 func internalRefresh(q *QuotaBucket, period *quotaPeriod) error {
 	var err error
 	aSyncBucket := q.GetAsyncQuotaBucket()
+	if aSyncBucket == nil {
+		return errors.New(constants.AsyncQuotaBucketEmpty)
+	}
+
 	weight := int64(0)
 	countFromCounterService := int64(0)
-	globalCount := aSyncBucket.asyncGLobalCount
-	maxCount := q.GetMaxCount()
+	globalCount,err := aSyncBucket.getAsyncGlobalCount()
+	if err != nil {
+		return err
+	}
 
+	maxCount := q.GetMaxCount()
 	for _, counterEle := range *aSyncBucket.asyncCounter {
 		weight += counterEle
 

@@ -124,7 +124,7 @@ func GetIntervalDurtation(qb *QuotaBucket) (time.Duration, error) {
 			currentStart = currentEnd.AddDate(0, (-1)*qb.Interval, 0)
 			return currentEnd.Sub(currentStart), nil
 		default:
-			return time.Duration(0), errors.New(constants.InvalidQuotaBucketType + " : ignoring unrecognized quotaType : " + quotaType)
+			return time.Duration(0), errors.New(constants.InvalidQuotaType + " : ignoring unrecognized quotaType : " + quotaType)
 
 		}
 	default:

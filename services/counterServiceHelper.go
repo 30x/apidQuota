@@ -25,6 +25,13 @@ var client *http.Client = &http.Client{
 	Timeout: time.Duration(60 * time.Second),
 }
 
+var token string
+
+func addApigeeSyncTokenToHeader(req *http.Request) {
+	token = globalVariables.Config.GetString(constants.ApigeeSyncBearerToken)
+	req.Header.Set("Authorization", "Bearer "+token)
+}
+
 func GetCount(orgID string, quotaKey string, startTimeInt int64, endTimeInt int64) (int64, error) {
 
 	return IncrementAndGetCount(orgID, quotaKey, 0, startTimeInt, endTimeInt)
@@ -34,7 +41,6 @@ func IncrementAndGetCount(orgID string, quotaKey string, count int64, startTimeI
 	headers := http.Header{}
 	headers.Set("Accept", "application/json")
 	headers.Set("Content-Type", "application/json")
-
 	method := "POST"
 
 	if globalVariables.CounterServiceURL == "" {
@@ -67,6 +73,7 @@ func IncrementAndGetCount(orgID string, quotaKey string, count int64, startTimeI
 		Body:          ioutil.NopCloser(bytes.NewReader(reqBodyBytes)),
 		ContentLength: int64(contentLength),
 	}
+	addApigeeSyncTokenToHeader(request)
 
 	resp, err := client.Do(request)
 

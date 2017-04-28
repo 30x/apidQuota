@@ -2,10 +2,8 @@ package apidQuota_test
 
 import (
 	. "github.com/onsi/ginkgo"
-	//"net/http"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"github.com/google/uuid"
 	"io/ioutil"
 	"net/http"
@@ -61,10 +59,9 @@ var _ = Describe("Api Tests", func() {
 			respBody := make(map[string]interface{})
 			err = json.Unmarshal(respBodyBytes, &respBody)
 			if err != nil {
-				fmt.Println("error: ", err)
+				Fail("error: " + err.Error())
 			}
 
-			fmt.Println(respBody)
 			Fail("wrong status code: " + res.Status)
 		}
 
@@ -107,7 +104,7 @@ var _ = Describe("Api Tests", func() {
 			respBody := make(map[string]interface{})
 			err = json.Unmarshal(respBodyBytes, &respBody)
 			if err != nil {
-				fmt.Println("error: ", err)
+				Fail("error: " + err.Error())
 			}
 
 			Fail("wrong status code: " + res.Status)
@@ -175,7 +172,7 @@ var _ = Describe("Api Tests", func() {
 			respBody := make(map[string]interface{})
 			err = json.Unmarshal(respBodyBytes, &respBody)
 			if err != nil {
-				fmt.Println("error: ", err)
+				Fail("error: " + err.Error())
 			}
 
 			Fail("wrong status code: " + res.Status)
