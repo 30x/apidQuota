@@ -273,7 +273,7 @@ func (qBucketRequest *QuotaBucket) FromAPIRequest(quotaBucketMap map[string]inte
 
 func (qBucketResults *QuotaBucketResults) ToAPIResponse() map[string]interface{} {
 	resultsMap := make(map[string]interface{})
-	resultsMap[reqEdgeOrgID] = qBucketResults.ID
+	resultsMap[reqEdgeOrgID] = qBucketResults.EdgeOrgID
 	resultsMap[reqID] = qBucketResults.ID
 	resultsMap[reqMaxCount] = qBucketResults.MaxCount
 	resultsMap["exceeded"] = qBucketResults.exceeded

@@ -20,12 +20,13 @@ var testhttpClient *http.Client = &http.Client{
 }
 
 const testQuotaAPIURL = "http://localhost:9000/quota"
+const testValidOrg = "edgexfeb1"
 
 var _ = Describe("Api Tests", func() {
 	It("test Synchronous quota - valid test cases", func() {
 		requestData := make(map[string]interface{})
-		requestData["edgeOrgID"] = "testTenant"
-		requestData["id"] = "testID"
+		requestData["edgeOrgID"] = testValidOrg
+		requestData["id"] = "testAppID"
 		requestData["interval"] = 1
 		requestData["timeUnit"] = "HOUR"
 		requestData["type"] = "CALENDAR"
@@ -53,7 +54,7 @@ var _ = Describe("Api Tests", func() {
 			Fail("error calling the api: " + err.Error())
 		}
 
-		// Check the status code is what we expect.
+		// Check the status code is 200 OK.
 		if status := res.StatusCode; status != http.StatusOK {
 			respBodyBytes, err := ioutil.ReadAll(res.Body)
 			respBody := make(map[string]interface{})

@@ -256,6 +256,9 @@ func NewQuotaBucket(edgeOrgID string, id string, interval int,
 					}
 
 					if exitCount > 3 {
+						removeFromCache( quotaBucket.GetEdgeOrgID()+
+								constants.CacheKeyDelimiter + quotaBucket.GetID(),
+						quotaCache[quotaBucket.GetEdgeOrgID()+constants.CacheKeyDelimiter + quotaBucket.GetID()])
 						qticker.Stop()
 					}
 				}
