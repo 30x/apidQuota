@@ -155,19 +155,133 @@ func (aSyncbucket *aSyncQuotaBucket) getCount(q *QuotaBucket, period *quotaPerio
 	return aSyncbucket.asyncGLobalCount + aSyncbucket.asyncLocalMessageCount, nil
 }
 
+func (quotaBucketType *aSyncQuotaBucket) incrementQuotaCount(q *QuotaBucket) (*QuotaBucketResults, error) {
+	period, err := q.GetPeriod()
+	if err != nil {
+		return nil, errors.New("error getting period: " + err.Error())
+	}
+	aSyncBucket := q.GetAsyncQuotaBucket()
+	if aSyncBucket == nil {
+		return nil, errors.New(constants.AsyncQuotaBucketEmpty + " : aSyncQuotaBucket to increment cannot be empty.")
+	}
+	currentCount, err := aSyncBucket.getCount(q, period)
+	if err != nil {
+		return nil, err
+	}
+
+	maxCount := q.GetMaxCount()
+	exceeded := false
+	remainingCount := int64(0)
+	weight := q.GetWeight()
+
+	if period.IsCurrentPeriod(q) {
+
+		if currentCount < maxCount {
+			diffCount := (currentCount + weight) - maxCount
+			if diffCount > 0 {
+				exceeded = true
+				remainingCount = maxCount - currentCount
+
+			} else {
+				aSyncBucket.addToCounter(weight)
+				aSyncBucket.addToAsyncLocalMessageCount(weight)
+				remainingCount = maxCount - (currentCount + weight)
+
+			}
+
+			asyncMessageCount, err := aSyncBucket.getAsyncSyncMessageCount()
+			if err != nil {
+				return nil, err
+			}
+
+			asyncLocalMsgCount, err := aSyncBucket.getAsyncLocalMessageCount()
+			if err != nil {
+				return nil, err
+			}
+
+			if asyncMessageCount > 0 &&
+				asyncLocalMsgCount >= asyncMessageCount {
+				err = internalRefresh(q, period)
+				if err != nil {
+					return nil, err
+				}
+			}
+		} else {
+			exceeded = true
+			remainingCount = maxCount - currentCount
+		}
+	}
+	if remainingCount < 0 {
+		remainingCount = int64(0)
+	}
+
+	results := &QuotaBucketResults{
+		EdgeOrgID:        q.GetEdgeOrgID(),
+		ID:               q.GetID(),
+		exceeded:         exceeded,
+		remainingCount:   remainingCount,
+		MaxCount:         maxCount,
+		startTimestamp:   period.GetPeriodStartTime().Unix(),
+		expiresTimestamp: period.GetPeriodEndTime().Unix(),
+	}
+
+	return results, nil
+}
+
+func internalRefresh(q *QuotaBucket, period *quotaPeriod) error {
+	var err error
+	aSyncBucket := q.GetAsyncQuotaBucket()
+	if aSyncBucket == nil {
+		return errors.New(constants.AsyncQuotaBucketEmpty)
+	}
+
+	weight := int64(0)
+	countFromCounterService := int64(0)
+	globalCount, err := aSyncBucket.getAsyncGlobalCount()
+	if err != nil {
+		return err
+	}
+
+	maxCount := q.GetMaxCount()
+	for _, counterEle := range *aSyncBucket.asyncCounter {
+		weight += counterEle
+
+		//delete from asyncCounter
+		temp := *aSyncBucket.asyncCounter
+		temp = temp[1:]
+		aSyncBucket.asyncCounter = &temp
+
+		if (weight + globalCount) >= maxCount {
+			//clear asyncCounter
+			for range *aSyncBucket.asyncCounter {
+				//delete all elements from asyncCounter
+				temp := *aSyncBucket.asyncCounter
+				temp = temp[1:]
+				aSyncBucket.asyncCounter = &temp
+			}
+		}
+	}
+
+	countFromCounterService, err = services.IncrementAndGetCount(q.GetEdgeOrgID(), q.GetID(), weight, period.GetPeriodStartTime().Unix(), period.GetPeriodEndTime().Unix())
+	if err != nil {
+		return err
+	}
+	aSyncBucket.asyncGLobalCount = countFromCounterService
+
+	aSyncBucket.asyncLocalMessageCount -= weight
+	return nil
+}
+
 type quotaBucketData struct {
-	EdgeOrgID             string
-	ID                    string
-	Interval              int
-	TimeUnit              string //TimeUnit {SECOND, MINUTE, HOUR, DAY, WEEK, MONTH}
-	QuotaType             string //QuotaType {CALENDAR, FLEXI, ROLLING_WINDOW}
-	PreciseAtSecondsLevel bool
-	StartTime             time.Time
-	MaxCount              int64
-	Weight                int64
-	Distributed           bool
-	Synchronous           bool
-	AsyncQuotaDetails     *aSyncQuotaBucket
+	EdgeOrgID         string
+	ID                string
+	Interval          int
+	TimeUnit          string //TimeUnit {SECOND, MINUTE, HOUR, DAY, WEEK, MONTH}
+	QuotaType         string //QuotaType {CALENDAR, FLEXI, ROLLING_WINDOW}
+	StartTime         time.Time
+	MaxCount          int64
+	Weight            int64
+	AsyncQuotaDetails *aSyncQuotaBucket
 }
 
 type QuotaBucket struct {
@@ -175,98 +289,86 @@ type QuotaBucket struct {
 }
 
 func NewQuotaBucket(edgeOrgID string, id string, interval int,
-	timeUnit string, quotaType string, preciseAtSecondsLevel bool,
-	startTime int64, maxCount int64, weight int64, distributed bool,
-	synchronous bool, syncTimeInSec int64, syncMessageCount int64) (*QuotaBucket, error) {
+	timeUnit string, quotaType string,
+	startTime int64, maxCount int64, weight int64, syncTimeInSec int64, syncMessageCount int64) (*QuotaBucket, error) {
 
 	fromUNIXTime := time.Unix(startTime, 0)
 	quotaBucketDataStruct := quotaBucketData{
-		EdgeOrgID:             edgeOrgID,
-		ID:                    id,
-		Interval:              interval,
-		TimeUnit:              timeUnit,
-		QuotaType:             quotaType,
-		PreciseAtSecondsLevel: preciseAtSecondsLevel,
-		StartTime:             fromUNIXTime,
-		MaxCount:              maxCount,
-		Weight:                weight,
-		Distributed:           distributed,
-		Synchronous:           synchronous,
-		AsyncQuotaDetails:     nil,
+		EdgeOrgID:         edgeOrgID,
+		ID:                id,
+		Interval:          interval,
+		TimeUnit:          timeUnit,
+		QuotaType:         quotaType,
+		StartTime:         fromUNIXTime,
+		MaxCount:          maxCount,
+		Weight:            weight,
+		AsyncQuotaDetails: nil,
 	}
 
 	quotaBucket := &QuotaBucket{
 		quotaBucketData: quotaBucketDataStruct,
 	}
 
-	if !quotaBucket.IsDistrubuted() {
-		if quotaBucket.IsSynchronous(){
-			return nil, errors.New("quota bucket cannot be both nonDistributed and synchronous.")
-		}
+	var quotaTicker int64
+	//ensure just one of syncTimeInSec and syncMessageCount is set.
+	if syncTimeInSec > -1 && syncMessageCount > -1 {
+		return nil, errors.New("both syncTimeInSec and syncMessageCount canot be set. only one of them should be set.")
 	}
-	//for async set AsyncQuotaDetails and start the NewTicker
-	if distributed && !synchronous {
-		var quotaTicker int64
-		//ensure just one of syncTimeInSec and syncMessageCount is set.
-		if syncTimeInSec > -1 && syncMessageCount > -1 {
-			return nil,errors.New("both syncTimeInSec and syncMessageCount canot be set. only one of them should be set.")
-		}
-		//set default syncTime for AsyncQuotaBucket.
-		//for aSyncQuotaBucket with 'syncMessageCount' the ticker is invoked with DefaultQuotaSyncTime
-		quotaTicker = constants.DefaultQuotaSyncTime
+	//set default syncTime for AsyncQuotaBucket.
+	//for aSyncQuotaBucket with 'syncMessageCount' the ticker is invoked with DefaultQuotaSyncTime
+	quotaTicker = constants.DefaultQuotaSyncTime
 
-		if syncTimeInSec > 0 { //if sync with counter service periodically
-			quotaTicker = syncTimeInSec
-		}
+	if syncTimeInSec > 0 { //if sync with counter service periodically
+		quotaTicker = syncTimeInSec
+	}
 
-		counter := make([]int64, 0)
-		newAsyncQuotaDetails := &aSyncQuotaBucket{
-			syncTimeInSec:          syncTimeInSec,
-			syncMessageCount:       syncMessageCount,
-			asyncCounter:           &counter,
-			asyncGLobalCount:       constants.DefaultCount,
-			asyncLocalMessageCount: constants.DefaultCount,
-			initialized:            false,
-			qTicker:                time.NewTicker(time.Duration(time.Second.Nanoseconds() * quotaTicker)),
-		}
+	counter := make([]int64, 0)
+	newAsyncQuotaDetails := &aSyncQuotaBucket{
+		syncTimeInSec:          syncTimeInSec,
+		syncMessageCount:       syncMessageCount,
+		asyncCounter:           &counter,
+		asyncGLobalCount:       constants.DefaultCount,
+		asyncLocalMessageCount: constants.DefaultCount,
+		initialized:            false,
+		qTicker:                time.NewTicker(time.Duration(time.Second.Nanoseconds() * quotaTicker)),
+	}
 
-		quotaBucket.setAsyncQuotaBucket(newAsyncQuotaDetails)
-		go func() {
-			aSyncBucket := quotaBucket.GetAsyncQuotaBucket()
-			if aSyncBucket != nil {
-				exitCount := int64(0)
-				qticker, _ := aSyncBucket.getAsyncQTicker()
-				for t := range qticker.C {
-					globalVariables.Log.Debug("t: ", t.String())
-					if len(*aSyncBucket.asyncCounter) == 0 {
-						exitCount += 1
-					}
-					period, err := quotaBucket.GetPeriod()
-					if err != nil {
-						globalVariables.Log.Error("error getting period for: ", err.Error(), "for quotaBucket: ", quotaBucket)
-						qticker.Stop()
-						continue
-					}
-					//sync with counterService.
-					err = internalRefresh(quotaBucket, period)
-					if err != nil {
-						globalVariables.Log.Error("error during internalRefresh: ", err.Error(), "for quotaBucket: ", quotaBucket)
-						qticker.Stop()
-						continue
-					}
-
-					if exitCount > 3 {
-						removeFromCache( quotaBucket.GetEdgeOrgID()+
-								constants.CacheKeyDelimiter + quotaBucket.GetID(),
-						quotaCache[quotaBucket.GetEdgeOrgID()+constants.CacheKeyDelimiter + quotaBucket.GetID()])
-						qticker.Stop()
-					}
+	quotaBucket.setAsyncQuotaBucket(newAsyncQuotaDetails)
+	go func() {
+		aSyncBucket := quotaBucket.GetAsyncQuotaBucket()
+		if aSyncBucket != nil {
+			exitCount := int64(0)
+			qticker, _ := aSyncBucket.getAsyncQTicker()
+			for t := range qticker.C {
+				globalVariables.Log.Debug("t: ", t.String())
+				if len(*aSyncBucket.asyncCounter) == 0 {
+					exitCount += 1
 				}
-			} else {
-				globalVariables.Log.Error("aSyncBucketDetails are empty for the given quotaBucket: ", quotaBucket)
+				period, err := quotaBucket.GetPeriod()
+				if err != nil {
+					globalVariables.Log.Error("error getting period for: ", err.Error(), "for quotaBucket: ", quotaBucket)
+					qticker.Stop()
+					continue
+				}
+				//sync with counterService.
+				err = internalRefresh(quotaBucket, period)
+				if err != nil {
+					globalVariables.Log.Error("error during internalRefresh: ", err.Error(), "for quotaBucket: ", quotaBucket)
+					qticker.Stop()
+					continue
+				}
+
+				if exitCount > 3 {
+					removeFromCache(quotaBucket.GetEdgeOrgID()+
+						constants.CacheKeyDelimiter+quotaBucket.GetID(),
+						quotaCache[quotaBucket.GetEdgeOrgID()+constants.CacheKeyDelimiter+quotaBucket.GetID()])
+					qticker.Stop()
+				}
 			}
-		}()
-	}
+		} else {
+			globalVariables.Log.Error("aSyncBucketDetails are empty for the given quotaBucket: ", quotaBucket)
+		}
+	}()
 
 	return quotaBucket, nil
 
@@ -321,24 +423,12 @@ func (q *QuotaBucket) GetType() string {
 	return q.quotaBucketData.QuotaType
 }
 
-func (q *QuotaBucket) GetIsPreciseAtSecondsLevel() bool {
-	return q.quotaBucketData.PreciseAtSecondsLevel
-}
-
 func (q *QuotaBucket) GetMaxCount() int64 {
 	return q.quotaBucketData.MaxCount
 }
 
 func (q *QuotaBucket) GetWeight() int64 {
 	return q.quotaBucketData.Weight
-}
-
-func (q *QuotaBucket) IsDistrubuted() bool {
-	return q.quotaBucketData.Distributed
-}
-
-func (q *QuotaBucket) IsSynchronous() bool {
-	return q.quotaBucketData.Synchronous
 }
 
 //setCurrentPeriod only for rolling window else just return the value of QuotaPeriod.
@@ -378,12 +468,7 @@ func (q *QuotaBucket) GetAsyncQuotaBucket() *aSyncQuotaBucket {
 
 func (q *QuotaBucket) IncrementQuotaLimit() (*QuotaBucketResults, error) {
 
-	qBucketHandler, err := GetQuotaBucketHandler(q)
-	if err != nil {
-		return nil, errors.New("error getting quotaBucketHandler: " + err.Error())
-	}
-
-	return qBucketHandler.incrementQuotaCount(q)
+	return q.GetAsyncQuotaBucket().incrementQuotaCount(q)
 
 }
 

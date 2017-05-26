@@ -1,10 +1,10 @@
 package quotaBucket
 
 import (
+	"errors"
 	"github.com/30x/apidQuota/constants"
 	"sync"
 	"time"
-	"errors"
 )
 
 var quotaCachelock = sync.RWMutex{}
@@ -52,17 +52,15 @@ func getFromCache(cacheKey string, weight int64) (*QuotaBucket, bool) {
 func removeFromCache(cacheKey string, qBucketCache quotaBucketCache) error {
 	//for async Stop the scheduler.
 
-	if qBucketCache.qBucket.Distributed && !qBucketCache.qBucket.IsSynchronous() {
-		aSyncBucket := qBucketCache.qBucket.GetAsyncQuotaBucket()
-		if aSyncBucket == nil {
-			return errors.New(constants.AsyncQuotaBucketEmpty + " : aSyncQuotaBucket to increment cannot be empty.")
-		}
-		qticker, err := aSyncBucket.getAsyncQTicker()
-		if err != nil {
-			return err
-		}
-		qticker.Stop()
+	aSyncBucket := qBucketCache.qBucket.GetAsyncQuotaBucket()
+	if aSyncBucket == nil {
+		return errors.New(constants.AsyncQuotaBucketEmpty + " : aSyncQuotaBucket to increment cannot be empty.")
 	}
+	qticker, err := aSyncBucket.getAsyncQTicker()
+	if err != nil {
+		return err
+	}
+	qticker.Stop()
 
 	quotaCachelock.Lock()
 	delete(quotaCache, cacheKey)

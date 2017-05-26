@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+	"fmt"
+	"os"
 )
 
 const (
@@ -75,15 +77,23 @@ func IncrementAndGetCount(orgID string, quotaKey string, count int64, startTimeI
 	}
 	addApigeeSyncTokenToHeader(request)
 
+	fmt.Println("request: ", request)
 	resp, err := client.Do(request)
 
 	if err != nil {
 		return 0, errors.New("error calling CounterService: " + err.Error())
 	}
+	defer resp.Body.Close()
+
 
 	globalVariables.Log.Debug("response: ", resp)
 	if resp.StatusCode != http.StatusOK {
+		fmt.Println("resp: ", resp)
+
 		respBodyBytes, err := ioutil.ReadAll(resp.Body)
+		fmt.Println(os.Stdout, string(respBodyBytes)) //<-- here !
+
+
 		if resp.StatusCode == http.StatusNotFound {
 			return 0, errors.New("response from counter service: " + resp.Status + " and response body is: " + string(respBodyBytes))
 		}

@@ -47,16 +47,13 @@ var _ = Describe("QuotaDescriptorType", func() {
 		interval := 1
 		maxCount := int64(10)
 		weight := int64(1)
-		distributed := true
-		synchronous := true
 		syncTimeInSec := int64(-1)
 		syncMessageCount := int64(-1)
-		preciseAtSecondsLevel := true
 		startTime := time.Now().UTC().UTC().AddDate(0, -1, 0).Unix()
 
 		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, preciseAtSecondsLevel, startTime, maxCount,
-			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+			quotaType, startTime, maxCount,
+			weight, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -78,8 +75,8 @@ var _ = Describe("QuotaDescriptorType", func() {
 		timeUnit = "minute"
 
 		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, preciseAtSecondsLevel, startTime, maxCount,
-			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+			quotaType, startTime, maxCount,
+			weight,  syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -101,8 +98,8 @@ var _ = Describe("QuotaDescriptorType", func() {
 		timeUnit = "hour"
 
 		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, preciseAtSecondsLevel, startTime, maxCount,
-			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+			quotaType, startTime, maxCount,
+			weight, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -124,8 +121,8 @@ var _ = Describe("QuotaDescriptorType", func() {
 		timeUnit = "day"
 
 		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, preciseAtSecondsLevel, startTime, maxCount,
-			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+			quotaType, startTime, maxCount,
+			weight,  syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -147,8 +144,8 @@ var _ = Describe("QuotaDescriptorType", func() {
 		timeUnit = "week"
 
 		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, preciseAtSecondsLevel, startTime, maxCount,
-			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+			quotaType, startTime, maxCount,
+			weight, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -170,8 +167,8 @@ var _ = Describe("QuotaDescriptorType", func() {
 		timeUnit = "month"
 
 		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, preciseAtSecondsLevel, startTime, maxCount,
-			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+			quotaType, startTime, maxCount,
+			weight, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -203,16 +200,13 @@ var _ = Describe("QuotaDescriptorType", func() {
 		interval := 1
 		maxCount := int64(10)
 		weight := int64(1)
-		preciseAtSecondsLevel := true
 		startTime := time.Now().UTC().UTC().AddDate(0, -1, 0).Unix()
-		distributed := true
-		synchronous := true
 		syncTimeInSec := int64(-1)
 		syncMessageCount := int64(-1)
 
 		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, preciseAtSecondsLevel, startTime, maxCount,
-			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+			quotaType, startTime, maxCount,
+			weight,  syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -234,8 +228,8 @@ var _ = Describe("QuotaDescriptorType", func() {
 		timeUnit = "invalidTimeUnit"
 
 		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, preciseAtSecondsLevel, startTime, maxCount,
-			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+			quotaType, startTime, maxCount,
+			weight, syncTimeInSec, syncMessageCount)
 		err = quotaBucket.Validate()
 		Expect(err).To(HaveOccurred())
 		if ok := strings.Contains(err.Error(), constants.InvalidQuotaTimeUnitType); !ok {
@@ -254,16 +248,13 @@ var _ = Describe("QuotaDescriptorType", func() {
 		interval := 1
 		maxCount := int64(10)
 		weight := int64(1)
-		preciseAtSecondsLevel := true
 		startTime := time.Now().UTC().UTC().AddDate(0, -1, 0).Unix()
-		distributed := true
-		synchronous := true
 		syncTimeInSec := int64(-1)
 		syncMessageCount := int64(-1)
 
 		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, preciseAtSecondsLevel, startTime, maxCount,
-			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+			quotaType, startTime, maxCount,
+			weight, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -285,8 +276,8 @@ var _ = Describe("QuotaDescriptorType", func() {
 		timeUnit = "minute"
 
 		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, preciseAtSecondsLevel, startTime, maxCount,
-			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+			quotaType, startTime, maxCount,
+			weight, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -308,8 +299,8 @@ var _ = Describe("QuotaDescriptorType", func() {
 		timeUnit = "hour"
 
 		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, preciseAtSecondsLevel, startTime, maxCount,
-			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+			quotaType, startTime, maxCount,
+			weight, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -331,8 +322,8 @@ var _ = Describe("QuotaDescriptorType", func() {
 		timeUnit = "day"
 
 		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, preciseAtSecondsLevel, startTime, maxCount,
-			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+			quotaType, startTime, maxCount,
+			weight, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -354,8 +345,8 @@ var _ = Describe("QuotaDescriptorType", func() {
 		timeUnit = "week"
 
 		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, preciseAtSecondsLevel, startTime, maxCount,
-			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+			quotaType, startTime, maxCount,
+			weight, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -377,8 +368,8 @@ var _ = Describe("QuotaDescriptorType", func() {
 		timeUnit = "month"
 
 		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, preciseAtSecondsLevel, startTime, maxCount,
-			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+			quotaType, startTime, maxCount,
+			weight, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -410,16 +401,13 @@ var _ = Describe("QuotaDescriptorType", func() {
 		interval := 1
 		maxCount := int64(10)
 		weight := int64(1)
-		preciseAtSecondsLevel := true
 		startTime := time.Now().UTC().UTC().AddDate(0, -1, 0).Unix()
-		distributed := true
-		synchronous := true
 		syncTimeInSec := int64(-1)
 		syncMessageCount := int64(-1)
 
 		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, preciseAtSecondsLevel, startTime, maxCount,
-			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+			quotaType, startTime, maxCount,
+			weight, syncTimeInSec, syncMessageCount)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = quotaBucket.Validate()
@@ -441,8 +429,8 @@ var _ = Describe("QuotaDescriptorType", func() {
 		timeUnit = "invalidTimeUnit"
 
 		quotaBucket, err = NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, preciseAtSecondsLevel, startTime, maxCount,
-			weight, distributed, synchronous, syncTimeInSec, syncMessageCount)
+			quotaType, startTime, maxCount,
+			weight, syncTimeInSec, syncMessageCount)
 		err = quotaBucket.Validate()
 		Expect(err).To(HaveOccurred())
 		if ok := strings.Contains(err.Error(), constants.InvalidQuotaTimeUnitType); !ok {
