@@ -177,7 +177,7 @@ var _ = Describe("QuotaBucket", func() {
 
 		asyncBucket := quotaBucket.GetAsyncQuotaBucket()
 		if asyncBucket == nil {
-			Fail("asyncBucket should be nil for synchronous request.")
+			Fail("asyncBucket can not be nil.")
 		}
 
 		//Testcase2 : with syncMessageCount
@@ -204,7 +204,7 @@ var _ = Describe("QuotaBucket", func() {
 
 		asyncBucket = quotaBucket.GetAsyncQuotaBucket()
 		if asyncBucket == nil {
-			Fail("asyncBucket should be nil for synchronous request.")
+			Fail("asyncBucket can not be nil.")
 		}
 
 		//Testcase3 : InvalidTestCase - with syncTimeInSec and syncMessageCount
@@ -216,46 +216,6 @@ var _ = Describe("QuotaBucket", func() {
 			quotaType, startTime, maxCount,
 			weight, syncTimeInSec, syncMessageCount)
 		Expect(err).To(HaveOccurred())
-
-	})
-
-	It("Create with NonDistributed QuotaBucket", func() {
-		edgeOrgID := "sampleOrg"
-		id := "sampleID"
-		interval := 1
-		timeUnit := "hour"
-		quotaType := "calendar"
-		maxCount := int64(10)
-		weight := int64(1)
-		syncTimeInSec := int64(-1)
-		syncMessageCount := int64(-1)
-
-		//start time before now()
-		startTime := time.Now().UTC().AddDate(0, -1, 0).Unix()
-
-		quotaBucket, err := NewQuotaBucket(edgeOrgID, id, interval, timeUnit,
-			quotaType, startTime, maxCount,
-			weight, syncTimeInSec, syncMessageCount)
-		Expect(err).NotTo(HaveOccurred())
-		now := time.Now().UTC()
-		currentHour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC)
-		err = quotaBucket.Validate()
-		Expect(err).NotTo(HaveOccurred())
-
-		//also check if all the fields are set as expected
-		getPeriod, err := quotaBucket.GetPeriod()
-		Expect(err).NotTo(HaveOccurred())
-		Expect(getPeriod.GetPeriodInputStartTime().String()).ShouldNot(BeEmpty())
-		Expect(getPeriod.GetPeriodStartTime().String()).ShouldNot(BeEmpty())
-		Expect(getPeriod.GetPeriodEndTime().String()).ShouldNot(BeEmpty())
-		Expect(getPeriod.GetPeriodStartTime().String()).Should(Equal(currentHour.String()))
-		Expect(getPeriod.GetPeriodEndTime().String()).Should(Equal(currentHour.Add(time.Hour).String()))
-
-
-		asyncBucket := quotaBucket.GetAsyncQuotaBucket()
-		if asyncBucket == nil {
-			Fail("asyncBucket can not be nil.")
-		}
 
 	})
 
