@@ -15,8 +15,8 @@
 package quotaBucket_test
 
 import (
-	"github.com/30x/apidQuota/constants"
-	. "github.com/30x/apidQuota/quotaBucket"
+	"github.com/apid/apidQuota/constants"
+	. "github.com/apid/apidQuota/quotaBucket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"reflect"

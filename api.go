@@ -16,11 +16,11 @@ package apidQuota
 
 import (
 	"encoding/json"
-	"github.com/30x/apid-core"
-	"github.com/30x/apidQuota/constants"
-	"github.com/30x/apidQuota/globalVariables"
-	"github.com/30x/apidQuota/quotaBucket"
-	"github.com/30x/apidQuota/util"
+	"github.com/apid/apid-core"
+	"github.com/apid/apidQuota/constants"
+	"github.com/apid/apidQuota/globalVariables"
+	"github.com/apid/apidQuota/quotaBucket"
+	"github.com/apid/apidQuota/util"
 	"io/ioutil"
 	"net/http"
 )

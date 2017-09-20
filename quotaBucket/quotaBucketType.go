@@ -16,8 +16,8 @@ package quotaBucket
 
 import (
 	"errors"
-	"github.com/30x/apidQuota/services"
-	"github.com/30x/apidQuota/constants"
+	"github.com/apid/apidQuota/services"
+	"github.com/apid/apidQuota/constants"
 )
 
 type QuotaBucketType interface {
