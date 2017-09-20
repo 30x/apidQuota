@@ -16,9 +16,9 @@ package quotaBucket
 
 import (
 	"errors"
-	"github.com/30x/apidQuota/constants"
-	"github.com/30x/apidQuota/globalVariables"
-	"github.com/30x/apidQuota/services"
+	"github.com/apid/apidQuota/constants"
+	"github.com/apid/apidQuota/globalVariables"
+	"github.com/apid/apidQuota/services"
 	"strings"
 	"sync/atomic"
 	"time"

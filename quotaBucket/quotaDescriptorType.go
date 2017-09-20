@@ -16,7 +16,7 @@ package quotaBucket
 
 import (
 	"errors"
-	"github.com/30x/apidQuota/constants"
+	"github.com/apid/apidQuota/constants"
 	"strings"
 	"time"
 )
