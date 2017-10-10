@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	apid.RegisterPlugin(initPlugin)
+	apid.RegisterPlugin(initPlugin, pluginData)
 }
 
 func initPlugin(services apid.Services) (apid.PluginData, error) {
